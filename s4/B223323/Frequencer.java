@@ -2,6 +2,7 @@ package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student
 import java.lang.*;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.stream.IntStream;
 
 import s4.specification.*;
 
@@ -153,25 +154,22 @@ public class Frequencer implements FrequencerInterface{
         slen = space.length;
         mySpace = space; spaceReady = slen>0;
         // First, create unsorted suffix array.
-        suffixArray = new int[slen];
         // put all suffixes in suffixArray.
-        if (slen > 1024){
-            Integer[] boxedSuffixArray = new Integer[slen];
-            for(int i = 0; i< slen; i++) {
-                boxedSuffixArray[i] = i; // Please note that each suffix is expressed by one integer.      
-            }
+        
+        if (slen > 5120) {
+            suffixArray = new int[slen];
+            SuffixArray sa = new SuffixArray();
+            sa.createSuffixArray(space, suffixArray);
+        } else if (slen > 1024){
+            Integer[] boxedSuffixArray = IntStream.range(0, slen).parallel().boxed().toArray(Integer[]::new);
             Arrays.parallelSort(boxedSuffixArray, COMPARATOR); //並列処理によるソート
-            for (int i = 0; i < slen; i++) {
-                suffixArray[i] = boxedSuffixArray[i].intValue();
-            }
+            suffixArray = IntStream.range(0, slen).parallel().map(i -> boxedSuffixArray[i].intValue()).toArray();
+            Arrays.parallelSetAll(suffixArray, i -> boxedSuffixArray[i].intValue());
         } else {
-            for(int i = 0; i< slen; i++) {
-                suffixArray[i] = i; // Please note that each suffix is expressed by one integer.      
-            }
+            suffixArray = IntStream.range(0, slen).toArray();
             qsort(0, slen);
         }
     }
-
     // ここから始まり、指定する範囲までは変更してはならないコードである。
 
     public final void setTarget(byte [] target) {
