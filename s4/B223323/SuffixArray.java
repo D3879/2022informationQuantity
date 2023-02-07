@@ -120,7 +120,7 @@ public class SuffixArray {
 
     public class MargeThread implements Runnable {
         Runnable a, b;
-        int left, right, mid, priority;
+        int left, right, mid;
 
         public MargeThread(int left, int right, int processors) {
             this.left = left; this.right = right; mid = (left + right) >> 1;
@@ -128,21 +128,18 @@ public class SuffixArray {
                 a = (mid > left) ? new RangeSortThread(left, mid) : Nop.instance;
                 ++mid;
                 b = (right > mid) ? new RangeSortThread(mid, right) : Nop.instance;
-                priority = 10;
             } else {
                 int p1 = processors >> 1;
                 a = new MargeThread(left, mid, p1);
                 b = new MargeThread(++mid, right, processors - p1);
-                priority = ((MargeThread) a).priority;
-                if (priority < 7) priority = 6; else priority--;
             }
         }
 
         public void run() {
             Thread t1 = new Thread(a);
-            t1.setPriority(priority); t1.start();
+            t1.start();
             Thread t2 = new Thread(b);
-            t2.setPriority(priority); t2.start();
+            t2.start();
             try {
                 t1.join(); t2.join();
             } catch (InterruptedException e) {
@@ -154,7 +151,7 @@ public class SuffixArray {
 
     public class ParallelSort implements Runnable{
         Runnable a, b;
-        int num, mid, priority;
+        int num, mid;
 
         public ParallelSort(int processors) {
             num = N - 1; mid = num >> 1;
@@ -162,21 +159,18 @@ public class SuffixArray {
                 a = (mid > 0) ? new RangeSortThread(0, mid) : Nop.instance;
                 ++mid;
                 b = (num > mid) ? new RangeSortThread(mid, num) : Nop.instance;
-                priority = 10;
             } else {
                 int p1 = processors >> 1;
                 a = new MargeThread(0, mid, p1);
                 b = new MargeThread(++mid, num, processors - p1);
-                priority = ((MargeThread) a).priority;
-                if (priority < 7) priority = 6; else priority--;
             }
         }
 
         public void run() {
             Thread t1 = new Thread(a);
-            t1.setPriority(priority); t1.start();
+            t1.start();
             Thread t2 = new Thread(b);
-            t2.setPriority(priority); t2.start();
+            t2.start();
             try {
                 t1.join(); t2.join();
             } catch (InterruptedException e) {
