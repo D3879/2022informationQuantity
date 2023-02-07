@@ -21,7 +21,7 @@ public class SuffixArray {
         sa = IntStream.range(0, N).toArray();
         tmp = suffixArray;
         K = 1;
-        sort = new ParallelSort((N > PROCESSOR_NUM) ? PROCESSOR_NUM : N);
+        sort = new ParallelSort(PROCESSOR_NUM << 1);
 
         Arrays.parallelSetAll(rank, i -> s[i]);
 
