@@ -1,9 +1,6 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
 import java.lang.*;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.stream.IntStream;
-
 import s4.specification.*;
 
 /*package s4.specification;
@@ -29,19 +26,12 @@ public class Frequencer implements FrequencerInterface{
 
     int []  suffixArray; // Suffix Arrayの実装に使うデータの型をint []とせよ。
 
-    //ソートアルゴリズムの選択閾値
-    //要素数 < threshold の時は挿入ソート
-    //要素数 >= threshold の時はクイックソート
-    private static final int threshold = 14;
+    int suffix0, suffixl;
+
     private int slen;
+    private int tlen;
 
-    private final SuffixComparator COMPARATOR = new SuffixComparator();
-
-    int tstart;
-    int start;
-    int end;
-    int p;
-    
+    private static final double C0 = 1/Math.log10(2d);
 
     // The variable, "suffixArray" is the sorted array of all suffixes of mySpace.                                    
     // Each suffix is expressed by a integer, which is the starting position in mySpace. 
@@ -53,6 +43,7 @@ public class Frequencer implements FrequencerInterface{
     // リポジトリにpushするときには、mainメッソド以外からは呼ばれないようにせよ。
     //
     private final void printSuffixArray() {
+        System.out.println("printSuffixArray");
         if(spaceReady) {
             for(int i=0; i< mySpace.length; i++) {
                 int s = suffixArray[i];
@@ -65,122 +56,23 @@ public class Frequencer implements FrequencerInterface{
         }
     }
 
-    private final int suffixCompare(int i, int j) {
-        // suffixCompareはソートのための比較メソッドである。
-        // 次のように定義せよ。
-        //
-        // comparing two suffixes by dictionary order.
-        // suffix_i is a string starting with the position i in "byte [] mySpace".
-        // When mySpace is "ABCD", suffix_0 is "ABCD", suffix_1 is "BCD", 
-        // suffix_2 is "CD", and sufffix_3 is "D".
-        // Each i and j denote suffix_i, and suffix_j.                            
-        // Example of dictionary order                                            
-        // "i"      <  "o"        : compare by code                              
-        // "Hi"     <  "Ho"       ; if head is same, compare the next element    
-        // "Ho"     <  "Ho "      ; if the prefix is identical, longer string is big  
-        //  
-        //The return value of "int suffixCompare" is as follows. 
-        // if suffix_i > suffix_j, it returns 1   
-        // if suffix_i < suffix_j, it returns -1  
-        // if suffix_i = suffix_j, it returns 0;   
-
-        // ここにコードを記述せよ 
-
-        if (i == j) return 0; //同じ場所からチェックすることになるので必ず一致
-        if (mySpace[i] == mySpace[j]){ //値が一致しない場所を見つける
-            int end = slen - 1;
-            if (i > j) //どちらが先にendに到達するかを判定
-                do
-                    if (i == end) return -1; //jが残っているので i < j
-                while(mySpace[++i] == mySpace[++j]);
-            else
-                do
-                    if (j == end) return 1; //iが残っているので j < i
-                while(mySpace[++i] == mySpace[++j]);
-        }
-        //ここでは mySpace[i] != mySpace[j]
-        return mySpace[i] > mySpace[j] ? 1 : -1;
-    }
-
-    //参考：http://wwwa.pikara.ne.jp/okojisan/sort-killer/qsort-killer.html PQuickSort.java
-    private final void qsort(int i0, int iN) {
-        int N = iN - i0;
-        if (N < 2) return;
-        int depth;
-        for (depth = 0; N > 0; N >>= 1) depth++;
-        qsort(i0, iN, depth);
-    }
-
-    private final void qsort(int i0, int iN, int d) {
-        int N = iN - i0;
-        if (N < threshold) { isort(i0, iN); return; }
-        int pivot = pseudoMedian(N, i0, d);
-        int i = i0, j = iN - 1;
-        for (;;) {
-            while (suffixCompare(suffixArray[i], pivot) <= 0) i++;
-            while (suffixCompare(pivot, suffixArray[j]) <= 0) j--;
-            if (i >= j) break;
-            int tmp = suffixArray[i]; suffixArray[i] = suffixArray[j]; suffixArray[j] = tmp;
-            i++; j--;
-        }
-        j++;
-        if (i - i0 > 1) qsort(i0, i, d);
-        if (iN - j > 1) qsort(j, iN, d);
-    }
-
-
-    /* pivotの選択 */
-    private final int pseudoMedian(int n, int i, int d) {
-        if (n <= d) return suffixArray[i + (n >> 1)];
-        int m = n / 3;
-        int x = pseudoMedian(m, i, d);
-        int y = pseudoMedian(n - (m << 1), i + m, d);
-        int z = pseudoMedian(m, i + n - m, d);
-        return suffixCompare(x, y) < 0 ?
-            (suffixCompare(y, z) < 0 ? y : (suffixCompare(z, x) < 0 ? x : z)) :
-            (suffixCompare(z, y) < 0 ? y : (suffixCompare(x, z) < 0 ? x : z));
-    }
-
-    /* 挿入ソート */
-    private final void isort(int i0, int iN) {
-        if (iN - i0 < 2) return; //ソートすべきものがない
-        for (int i = i0 + 1; i < iN; i++) {
-            int tmp = suffixArray[i];
-            int j = i, k = i;
-            if (suffixCompare(tmp, suffixArray[i0]) < 0)
-                while (i0 < j) { suffixArray[j] = suffixArray[--k]; j = k; }
-            else
-                while (suffixCompare(tmp, suffixArray[--k]) < 0) { suffixArray[j] = suffixArray[k]; j = k; }
-            suffixArray[j] = tmp;
-        }
-    }
-
     public final void setSpace(byte []space) { 
-        // suffixArrayの前処理は、setSpaceで定義せよ。
-        end = slen = space.length;
-        mySpace = space; spaceReady = slen>0;
-        // First, create unsorted suffix array.
-        // put all suffixes in suffixArray.
-        
-        if (slen > 5120) {
-            suffixArray = new int[slen];
-            SuffixArray sa = new SuffixArray();
-            sa.createSuffixArray(space, suffixArray);
-        } else if (slen > 1024){
-            Integer[] boxedSuffixArray = IntStream.range(0, slen).parallel().boxed().toArray(Integer[]::new);
-            Arrays.parallelSort(boxedSuffixArray, COMPARATOR); //並列処理によるソート
-            suffixArray = IntStream.range(0, slen).parallel().map(i -> boxedSuffixArray[i].intValue()).toArray();
-            Arrays.parallelSetAll(suffixArray, i -> boxedSuffixArray[i].intValue());
-        } else {
-            suffixArray = IntStream.range(0, slen).toArray();
-            qsort(0, slen);
-        }
+        slen = space.length;
+        spaceReady = slen>0;
+        if (!spaceReady) return;
+        mySpace = space;
+
+        suffixArray = IntStream.range(0, slen).toArray();
+        SuffixArray sa = new SuffixArray();
+        sa.createSuffixArray(space, suffixArray);
+        suffix0 = suffixArray[0];
+        suffixl = suffixArray[slen - 1];
     }
     // ここから始まり、指定する範囲までは変更してはならないコードである。
 
     public final void setTarget(byte [] target) {
-        tstart = target.length;
-        if(tstart > 0) {
+        tlen = target.length;
+        if(tlen > 0) {
             targetReady = true; 
             myTarget = target;
         } else targetReady = false;
@@ -280,42 +172,73 @@ public class Frequencer implements FrequencerInterface{
             }
         return mySpace[i] > myTarget[j] ? 1 : -1; //比較
     }
+    
+    /* estimationの関数呼び出しを展開 */
+    public final double calculate() { //result.length = target.length
+        final int suffix0 = this.suffix0, suffixl = this.suffixl, tlen = this.tlen, slen = this.slen;
+        final double memo[] = new double[tlen];
+        final double DOUBLE_MAX = Double.MAX_VALUE, C1 = Math.log10((double) slen);
 
-    public final void reset(int target_start) {
-        start = p = 0;
-        end = slen;
-        tstart = target_start;
-    }
-
-    public final int subByteFrequency() {
-        if (start == slen) return 0;
-        byte target = myTarget[tstart++];
-        int s = start;
-        int pointer = suffixArray[start] + p;
-        if (pointer >= slen || mySpace[pointer] != target) start = subByteStartIndex(start, end, p, target);
-        pointer = suffixArray[end - 1] + p;
-        if (pointer >= slen || mySpace[pointer] != target) end = subByteEndIndex(s, end, p, target);
-        p++;
-        return end - start;
-    }
-
-    private final int subByteStartIndex(int start, int end, int p, int target) {
+        int start, p = start = 0, end = slen, targetstart, s = targetstart = tlen - 1, tmp, q, suffixp, freq, freqc = slen;
+        int spointer = suffix0; //suffixArray[start] + p
+        int epointer = suffixl; //suffixArray[end] + p
+        double min = DOUBLE_MAX, cache = 0d, iq;
         for (;;) {
-            int q = (start + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-            int spacep = suffixArray[q] + p; //spacep >= slen then space < target
-            if (start == q) return spacep >= slen || mySpace[spacep] < target ? end : start;
-            if (spacep >= slen || mySpace[spacep] < target) start = q;
-            else end = q;
-        }
-    }
+            byte target = myTarget[s];
+            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
+                tmp = end;
+                /* StartIndex */
+                for (;;) {
+                    q = (start + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    suffixp = suffixArray[q] + p; //suffixp >= slen then space < target
+                    if (start == q) { if (suffixp >= slen || mySpace[suffixp] < target) start++; break; }
+                    if (suffixp >= slen || mySpace[suffixp] < target) start = q;
+                    else tmp = q;
+                }
 
-    private final int subByteEndIndex(int start, int end, int p, byte target) {
-        for(;;) {
-            int q = (start + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-            int spacep = suffixArray[q] + p; //spacep >= slen then space < target
-            if (start == q) return spacep >= slen || mySpace[spacep] <= target ? end : q;
-            if (spacep >= slen || mySpace[spacep] > target) end = q;
-            else start = q;
+                if (start == end) {
+                    if (targetstart == 0) return min == DOUBLE_MAX ? DOUBLE_MAX : min * C0;
+                    memo[--targetstart] = min;
+                    s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                    continue;
+                }
+                spointer = suffixArray[start] + p;
+            }
+            if (epointer >= slen || mySpace[epointer] != target) {
+                tmp = start;
+                /* EndIndex */
+                for(;;) {
+                    q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    suffixp = suffixArray[q] + p; //suffixp >= slen then space < target
+                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
+                    else tmp = q;
+                }
+
+                if (start == end) { 
+                    if (targetstart == 0) return min == DOUBLE_MAX ? DOUBLE_MAX : min * C0;
+                    memo[--targetstart] = min;
+                    s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                    continue;
+                }
+                epointer = suffixArray[end - 1] + p;
+            }
+            freq = end - start;
+            if (freqc != freq) {
+                freqc = freq;
+                cache = C1 - Math.log10((double) freq);
+            }
+            iq = cache + memo[s];
+            if (iq < min) min = iq;
+            if (++s == tlen) {
+                if (targetstart == 0) return min * C0;
+                memo[--targetstart] = min;
+                s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                continue;
+            }
+            p++;
+            spointer++;
+            epointer++;
         }
     }
 
@@ -406,7 +329,7 @@ public class Frequencer implements FrequencerInterface{
         // return 0;
     }
 
-    /* */
+    /* *
     //DEBUG用
     private static void print(int ...i) {
         print("", i);
@@ -481,42 +404,10 @@ public class Frequencer implements FrequencerInterface{
             if(7 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
             result = frequencerObject.subByteEndIndex(0, 8); //Hi Ho Hi
             if(5 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
-            frequencerObject.reset(1);
-            result = frequencerObject.subByteFrequency(); //i
-            if(2 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
-            result = frequencerObject.subByteFrequency(); //i 
-            if(2 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
-            result = frequencerObject.subByteFrequency(); //i H
-            if(2 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
-            result = frequencerObject.subByteFrequency(); //i Ho
-            if(2 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
-            result = frequencerObject.subByteFrequency(); //i Ho 
-            if(1 == result) { System.out.println("OK"); } else {System.out.println("WRONG:" + result); }
         }
         catch(Exception e) {
             System.out.println("STOP");
             e.printStackTrace();
-        }
-    }
-
-    private class SuffixComparator implements Comparator<Integer> {
-        @Override
-        public int compare(Integer arg0, Integer arg1) {
-            int i = arg0.intValue(), j = arg1.intValue();
-            if (i == j) return 0;
-            if (mySpace[i] == mySpace[j]){ //値が一致しない場所を見つける
-                int end = slen - 1;
-                if (i > j) //どちらが先にendに到達するかを判定
-                    do
-                        if (i == end) return -1; //jが残っているので i < j
-                    while(mySpace[++i] == mySpace[++j]);
-                else
-                    do
-                        if (j == end) return 1; //iが残っているので j < i
-                    while(mySpace[++i] == mySpace[++j]);
-            }
-            //ここでは mySpace[i] != mySpace[j]
-            return mySpace[i] > mySpace[j] ? 1 : -1;
         }
     }
 }

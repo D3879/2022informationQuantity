@@ -4,7 +4,6 @@ package s4.B223323;
 
 import java.lang.*;
 import java.util.Arrays;
-import java.util.stream.IntStream;
 
 public class SuffixArray {
     private int N;
@@ -18,37 +17,55 @@ public class SuffixArray {
     public void createSuffixArray(byte[] s, int[] suffixArray) {
         N = s.length;
         rank = new int[N];
-        sa = IntStream.range(0, N).toArray();
-        tmp = suffixArray;
+        tmp = new int[N];
+        sa = suffixArray;
         K = 1;
         sort = new ParallelSort(PROCESSOR_NUM << 1);
 
         Arrays.parallelSetAll(rank, i -> s[i]);
 
-        for (K = 1; K < N; K <<= 1) {
+        for (; K < N; K <<= 1) {
             sort.run();
-            tmp[sa[0]] = 0;
-            for (int i = 1; i < N; i++) {
-                tmp[sa[i]] = tmp[sa[i - 1]] + (cmp(sa[i - 1], sa[i]) < 0 ? 1 : 0);
+            int i = 0, j = 0, l = sa[0], ri = rank[l], rj, it = (l + K) < N ? rank[l + K] : -1, jt;
+            for (;;) {
+                tmp[l] = j;
+                if (++i == N) break;
+                l = sa[i];
+                rj = rank[l];
+                jt = (l + K) < N ? rank[l + K] : -1;
+                if (ri < rj) j++; else if (ri == rj && it < jt)  j++;
+                ri = rj;
+                it = jt;
             }
-            System.arraycopy(tmp, 0, rank, 0, N);
+            int[] t = tmp; tmp = rank; rank = t;
         }
-        Arrays.parallelSetAll(suffixArray,  i -> sa[i]);
         return;
     }
 
-    private int cmp(int i, int j) {
-        if (rank[i] != rank[j]) return rank[i] - rank[j];
-        int ik = i + K;
-        int jk = j + K;
-        return (ik < N ? rank[ik] : -1) - (jk < N ? rank[jk] : -1);
-    }
+    // private int cmp(int i, int j) {
+    //     if (rank[i] != rank[j]) return rank[i] - rank[j];
+    //     int ik = i + K;
+    //     int jk = j + K;
+    //     return (ik < N ? rank[ik] : -1) - (jk < N ? rank[jk] : -1);
+    // }
 
     /* 参考:https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1332844948 */
     private void msort(int[] data, int[] tmp, int left, int right) {
         // int mid = (right + left) >> 1;
-        for (int i = 2; i < right + left; i <<= 1){
-            int l = left, r = left + i;
+        int len = right + left, l, r;
+        for (l = left; l < right; l+=2) {
+            int a = data[l], b = data[l+1];
+            if (a < b) {
+                tmp[l] = a;
+                tmp[l+1] = b;
+            } else {
+                tmp[l] = b;
+                tmp[l+1] = a;
+            }
+        }
+        if (l == right) tmp[l] = data[l];
+        for (int i = 4; i < len; i <<= 1){
+            l = left; r = left + i;
             for (; r < right; r+=i, l+=i) {
                 merge(data, tmp, l, (r + l) >> 1, r);
             }
@@ -57,49 +74,48 @@ public class SuffixArray {
         // if(mid > left) msort(data, tmp, left, mid);
         // ++mid;
         // if(right > mid) msort(data, tmp, mid, right);
-        merge(data, tmp, left, (left + right + 2) >> 1, right);
+        merge(data, tmp, left, (len + 2) >> 1, right);
         // merge(data, tmp, left, mid, right);
     }
 
     private void merge(int[] data, int[] tmp, int left, int mid, int right) {
         int lend = mid - 1, tp = left, l0 = left, N = right - left + 1;
         if (left > lend || mid > right){
-            if (mid < right) for(;;) {
-                tmp[tp] = data[mid];
-                if (mid == right) { System.arraycopy(tmp, l0, data, l0, N); return; }
-                ++mid; ++tp;
-            } else for(;;) {
-                tmp[tp] = data[mid];
-                if (left == lend) { System.arraycopy(tmp, l0, data, l0, N); return; }
-                ++left; ++tp;
+            if (mid < right) {
+                System.arraycopy(tmp, l0, data, l0, N - right + mid - 1);
+                return;
+            } else {
+                System.arraycopy(data, left, tmp, tp, lend - left + 1);
+                System.arraycopy(tmp, l0, data, l0, N);
+                return;
             }
         }
+        final int K = this.K, NK = this.N - K;
+        int i = data[left], j = data[mid], ir = rank[i], jr = rank[j], it = i < NK ? rank[i + K] : -1, jt = j < NK ? rank[j + K] : -1;
         for (;;) {
-            if (cmp(data[left], data[mid]) <= 0) {
-                tmp[tp] = data[left];
-                tp++;
-                if (left != lend){
-                    left++;
-                    continue;
+            if (ir < jr || (ir == jr && it <= jt)) {
+                tmp[tp] = i;
+                if (left == lend) {
+                    System.arraycopy(tmp, l0, data, l0, N - right + mid - 1);
+                    return;
                 }
-                for(;;) {
-                    tmp[tp] = data[mid];
-                    if (mid == right) { System.arraycopy(tmp, l0, data, l0, N); return; }
-                    ++mid; ++tp;
-                }
+                left++;
+                i = data[left];
+                ir = rank[i];
+                it = i < NK ? rank[i + K] : -1;
             } else {
-                tmp[tp] = data[mid];
-                tp++;
-                if (mid != right){
-                    mid++;
-                    continue;
+                tmp[tp] = j;
+                if (mid == right) {
+                    System.arraycopy(data, left, tmp, tp + 1, lend - left + 1);
+                    System.arraycopy(tmp, l0, data, l0, N);
+                    return; 
                 }
-                for(;;) {
-                    tmp[tp] = data[left];
-                    if (left == lend) { System.arraycopy(tmp, l0, data, l0, N); return; }
-                    ++left; ++tp;
-                }
+                mid++;
+                j = data[mid];
+                jr = rank[j];
+                jt = j < NK ? rank[j + K] : -1;
             }
+            tp++;
         }
     }
 
@@ -151,7 +167,7 @@ public class SuffixArray {
 
     public class ParallelSort implements Runnable{
         Runnable a, b;
-        int num, mid;
+        int num, mid; //mid = (N + 1 >> 1)
 
         public ParallelSort(int processors) {
             num = N - 1; mid = num >> 1;

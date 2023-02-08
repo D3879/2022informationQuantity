@@ -22,21 +22,20 @@ public class InformationEstimator implements InformationEstimatorInterface{
     private boolean myTargetNotReady = true;
 
     //定数群
-    private static final double C0 = 1/Math.log10(2d);
-    private static final double DOUBLE_MAX = Double.MAX_VALUE;
-    private static final int N = Runtime.getRuntime().availableProcessors();
+    // private static final double C0 = 1/Math.log10(2d);
+    // private static final double DOUBLE_MAX = Double.MAX_VALUE;
 
-    private double C1 = 0;                                         //log10(mySpace.length)
-    private int len;                                               //target.length
+    // private double C1 = 0;                                         //log10(mySpace.length)
+    // private int len;                                               //target.length
 
     // IQ: information quantity for a count,  -log2(count/sizeof(space))
     private final double iq(int freq) {
-        return (-Math.log10((double) freq) + C1) * C0;
+        return (-Math.log10((double) freq / myFrequencer.mySpace.length)) / Math.log10(2d);
     }
 
     public final void setTarget(byte [] target) { 
-        len = target.length; //このクラスで直接必要なtargetの情報はこれだけ
-        if (len == 0) {
+        // int len = target.length;
+        if (target.length == 0) {
             myTargetNotReady = true; 
         } else {
             myTargetNotReady = false;
@@ -48,37 +47,21 @@ public class InformationEstimator implements InformationEstimatorInterface{
         mySpaceNotReady = space.length == 0;
         if (mySpaceNotReady) return;
         myFrequencer.setSpace(space);
-        C1 = Math.log10((double) space.length);
+        // C1 = Math.log10((double) space.length);
     }
+
 
     public final double estimation() {
         if (myTargetNotReady) return 0d; // returns 0.0 when the target is not set or Target's length is zero;
-        if (mySpaceNotReady) return DOUBLE_MAX; // It returns Double.MAX_VALUE, when the true value is infinite, or the space is not set.
-
-        int start = len - 1;
-        double min;
-        double[] memo = new double[len];
-        
-        for (;;) {
-            min = DOUBLE_MAX;
-            myFrequencer.reset(start);
-            for (int i = start;i < len; i++) {
-                int freq = myFrequencer.subByteFrequency();
-                if (freq == 0) break;
-                double iq = -Math.log10((double) freq) + C1 + memo[i];
-                if (min > iq) min = iq;
-            }
-            
-            if (start == 0) break;
-            memo[--start] = min;
-        }
-        
-        return min == DOUBLE_MAX ? min : min * C0;
+        if (mySpaceNotReady) return Double.MAX_VALUE; // It returns Double.MAX_VALUE, when the true value is infinite, or the space is not set.
+        return myFrequencer.calculate();
     }
 
     private final double slowEstimation(){
         if (myTargetNotReady) return 0d;
-        if (mySpaceNotReady) return DOUBLE_MAX;
+        if (mySpaceNotReady) return Double.MAX_VALUE;
+
+        int len = myFrequencer.myTarget.length;
 
         boolean [] partition = new boolean[len+1];
         int np;
@@ -93,7 +76,7 @@ public class InformationEstimator implements InformationEstimatorInterface{
             // T F T F F T F T : partition:
             partition[0] = true; // I know that this is not needed, but..
             for(int i=0; i<len -1;i++) {
-            partition[i+1] = (0 !=((1<<i) & p));
+                partition[i+1] = (0 !=((1<<i) & p));
             }
             partition[len] = true;
 
@@ -169,8 +152,8 @@ public class InformationEstimator implements InformationEstimatorInterface{
         /* */
         byte[] space = new byte[1048576];
         byte[] target = new byte[10240];
+
         // java.security.SecureRandom rnd = new java.security.SecureRandom();
-        
         // rnd.setSeed(System.nanoTime());
         // rnd.nextBytes(target);
         // rnd.nextBytes(space);
@@ -183,7 +166,7 @@ public class InformationEstimator implements InformationEstimatorInterface{
         myObject.setTarget(target);
         value = myObject.estimation();
         long t3 = System.currentTimeMillis();
-        System.out.println(">setSpace in " + (t2 - t1) + "ms");
+        System.out.println(">set space in " + (t2 - t1) + " ms");
         System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t3 - t0) + " ms");
         /* */
     }
