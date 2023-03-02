@@ -1,5 +1,6 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
-import java.lang.*;
+
+import java.util.Arrays;
 import java.util.stream.IntStream;
 import s4.specification.*;
 
@@ -24,6 +25,8 @@ public class Frequencer implements FrequencerInterface{
     boolean targetReady; //default: false
     boolean spaceReady;  //default: false
 
+    SuffixArray sa = new SuffixArray();
+
     int []  suffixArray; // Suffix Arrayの実装に使うデータの型をint []とせよ。
 
     int suffix0, suffixl;
@@ -43,16 +46,18 @@ public class Frequencer implements FrequencerInterface{
     // リポジトリにpushするときには、mainメッソド以外からは呼ばれないようにせよ。
     //
     private final void printSuffixArray() {
-        System.out.println("printSuffixArray");
         if(spaceReady) {
-            for(int i=0; i< mySpace.length; i++) {
-                int s = suffixArray[i];
-                System.out.printf("suffixArray[%2d]=%2d:", i, s);
-                for(int j=s;j<mySpace.length;j++) {
-                    System.out.write(mySpace[j]);
-                }
-                System.out.write('\n');
+            printSuffixArray(suffixArray, mySpace, slen);
+        }
+    }
+    private final void printSuffixArray(int[] suffix, byte[] str, int n) {
+        for(int i=0; i< n; i++) {
+            int s = suffix[i];
+            System.out.printf("suffixArray[%2d]=%2d:", i, s);
+            for(int j=s;j<n;j++) {
+                System.out.write(str[j]);
             }
+            System.out.write('\n');
         }
     }
 
@@ -62,9 +67,11 @@ public class Frequencer implements FrequencerInterface{
         if (!spaceReady) return;
         mySpace = space;
 
-        suffixArray = IntStream.range(0, slen).toArray();
-        SuffixArray sa = new SuffixArray();
-        sa.createSuffixArray(space, suffixArray);
+        suffixArray = IntStream.range(0, slen).parallel().toArray();
+        int[] tmp1 = new int[slen];
+        int[] tmp2 = new int[slen];
+        int[] str = IntStream.range(0, slen).parallel().map(i->space[i] & 0xFF).toArray();
+        sa.createSuffixArray(suffixArray, str, tmp1, tmp2, slen);
         suffix0 = suffixArray[0];
         suffixl = suffixArray[slen - 1];
     }
@@ -111,8 +118,8 @@ public class Frequencer implements FrequencerInterface{
     // 変更してはいけないコードはここまで。
 
     public final int slowsubByteFrequency(int start, int end) {
-        int spaceLength = mySpace.length;                      
-        int count = 0;                                        
+        int spaceLength = mySpace.length;
+        int count = 0;
         for(int offset = 0; offset< spaceLength - (end - start); offset++) {
             boolean abort = false; 
             for(int i = 0; i< (end - start); i++) {
@@ -171,6 +178,145 @@ public class Frequencer implements FrequencerInterface{
                 while (mySpace[++i] == myTarget[++j]);
             }
         return mySpace[i] > myTarget[j] ? 1 : -1; //比較
+    }
+
+    /**
+     * 一応ok？
+     * 
+     * targetとspaceのsuffixArrayを用いてすべての部分文字列の頻度を求め、
+     * log(slen/freq)をmemoに記録する
+     * 
+     * memoのサイズは計算できる場所からiqを計算すれば少しは減らせるはず
+     * 
+     * @param targetSuffix targetのsuffixArray
+     * @param tstart       targetのsuffixArrayの範囲
+     * @param tend         targetのsuffixArrayの範囲
+     * @param spaceSuffix  spaceのsuffixArray
+     * @param sstart       spaceのsuffixArrayの範囲
+     * @param send         spaceのsuffixArrayの範囲
+     * @param memo         Double.MAX_VALUEで初期化されたサイズ[tlen*(tlen+1)/2]の配列
+     * @param offset       offset文字目から見る
+     * @param memoOffset   メモ記入時のoffset
+     * @param C1           log(slen)
+     */
+    public final void calculate2_1(final int[] targetSuffix, int tstart, int tend, final int[] spaceSuffix, int sstart, int send, final double[] memo, int offset, int memoOffset, final double C1) {
+        int end = send;
+        int spointer = suffixArray[sstart] + offset;
+        int epointer = suffixArray[send-1] + offset;
+        for(;;) {
+            //1 targetをsuffixArrayから取得
+            while (targetSuffix[tstart] + offset >= tlen) {
+                tstart++;
+                if (tstart >= tend) return;
+            }
+            int targetIndex = tstart;
+            byte target = myTarget[targetSuffix[tstart] + offset];
+
+            // print(tstart, tend, sstart, send);
+            
+            //2 targetのfreqを計算(sstart,endを求める)
+            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
+                int tmp = end;
+                /* StartIndex */
+                for (;;) {
+                    int q = (sstart + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (sstart == q) { if (suffixp >= slen || mySpace[suffixp] < target) sstart++; break; }
+                    if (suffixp >= slen || mySpace[suffixp] < target) sstart = q;
+                    else tmp = q;
+                }
+                if (sstart < end) spointer = suffixArray[sstart] + offset;
+            }
+            if (sstart < end && (epointer >= slen || mySpace[epointer] != target)) {
+                int tmp = sstart;
+                /* EndIndex */
+                for(;;) {
+                    int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
+                    else tmp = q;
+                }
+                if (sstart < end) epointer = suffixArray[end - 1] + offset;
+            }
+
+            //3 targetで部分文字列の等しい部分を埋める(targetSuffixArrayを見ればよい)
+            // print(targetIndex,targetSuffix[targetIndex]);
+            if (end != sstart) {
+                double iq = C1 - Math.log(end - sstart);
+                do {
+                    memo[targetSuffix[targetIndex] + memoOffset] = iq;
+                    targetIndex++;
+                } while (targetIndex < tend && targetSuffix[targetIndex] + offset < tlen && myTarget[targetSuffix[targetIndex] + offset] == target);
+            } else {
+                while (++targetIndex < tend && targetSuffix[targetIndex] + offset < tlen && myTarget[targetSuffix[targetIndex] + offset] == target);
+                if (targetIndex < tend) calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1);
+                return;
+            }
+
+            //4 targetと異なる部分は再帰的に実行する
+            if (targetIndex < tend) {
+                calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1);
+            }
+
+            //5 offsetを+1、関連パラメータの更新
+            //calculate2_1(targetSuffix, tstart, targetIndex, spaceSuffix, sstart ,  end, memo, offset + 1, memoOffset + tlen - offset, C1);
+            tend = targetIndex;
+            send = end;
+            memoOffset += tlen - offset;
+            offset++;
+            spointer++;
+            epointer++;
+        } 
+    }
+
+    public final double calculate2() {
+        final double memo[] = new double[(tlen * (tlen + 1)) >> 1], C1 = Math.log((double) slen), C0 = 1 / Math.log(2d);
+        int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray(), tmparr = new int[tlen], tmparr2 = new int[tlen];
+        int[] targetStr = IntStream.range(0, tlen).parallel().map(i -> myTarget[i] & 0xFF).toArray();
+
+        sa.createSuffixArray(targetSuffix, targetStr, tmparr, tmparr2, tlen);
+        // printSuffixArray(targetSuffix, myTarget, tlen);
+
+        Arrays.fill(memo, Double.MAX_VALUE);
+        calculate2_1(targetSuffix, 0, tlen, suffixArray, 0, slen, memo, 0, 0, C1);
+
+        //memoの出力
+        // int offset = 0;
+        // StringBuilder sb = new StringBuilder();
+        // for (int i = 0; i < tlen;) {
+        //     for (int j = i; j < tlen; j++) {
+        //         sb.append(memo[j + offset]);
+        //         sb.append(' ');
+        //     }
+        //     sb.append('\n');
+        //     i++;
+        //     offset += tlen - i;
+        // }
+        // System.out.println(sb.toString());
+        
+        //結合
+        for (int i = 2; i <= tlen; i++) {
+            int j = tlen - i;
+            int offset = 0;
+            for (int k = 1; k < i; k++) {
+                //print("1:", j + offset, j + k);
+                memo[j + offset] += memo[j + k];
+                offset += tlen - k + 1;
+            }
+
+            double min = Double.MAX_VALUE;
+            j = tlen - i;
+            offset = 0;
+            for (int k = 0; k < i; k++) {
+                //print("2:", j + offset);
+                if (min > memo[j + offset]) min = memo[j + offset];
+                offset += tlen - k;
+            }
+            memo[tlen-i] = min;
+        }
+        
+        return memo[0] >= Double.MAX_VALUE ? Double.MAX_VALUE : memo[0] * C0;
     }
     
     /* estimationの関数呼び出しを展開 */
@@ -329,12 +475,12 @@ public class Frequencer implements FrequencerInterface{
         // return 0;
     }
 
-    /* *
+    /* */
     //DEBUG用
-    private static void print(int ...i) {
+    public static void print(int ...i) {
         print("", i);
     }
-    private static void print(String header, int ...i) { //[debug]数値の一括出力
+    public static void print(String header, int ...i) { //[debug]数値の一括出力
         System.out.print(header);
         for (int object : i) {
             System.out.print(object);
@@ -382,7 +528,11 @@ public class Frequencer implements FrequencerInterface{
               10:o Hi Ho                     
             */
 
-            frequencerObject.setTarget("H".getBytes());
+
+            frequencerObject.setTarget("HiHi".getBytes());
+            System.out.println(frequencerObject.calculate());
+            System.out.println(frequencerObject.calculate2());
+
             //                                         
             // ****  Please write code to check subByteStartIndex, and subByteEndIndex
             //

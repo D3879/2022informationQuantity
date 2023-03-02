@@ -1,5 +1,4 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
-import java.lang.*;
 
 import s4.specification.*;
 
@@ -54,7 +53,7 @@ public class InformationEstimator implements InformationEstimatorInterface{
     public final double estimation() {
         if (myTargetNotReady) return 0d; // returns 0.0 when the target is not set or Target's length is zero;
         if (mySpaceNotReady) return Double.MAX_VALUE; // It returns Double.MAX_VALUE, when the true value is infinite, or the space is not set.
-        return myFrequencer.calculate();
+        return myFrequencer.calculate2();
     }
 
     private final double slowEstimation(){

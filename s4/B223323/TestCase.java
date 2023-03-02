@@ -1,5 +1,4 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
-import java.lang.*;
 import s4.specification.*;
 
 /*

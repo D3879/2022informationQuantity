@@ -1,198 +1,332 @@
 //参考：https://webbibouroku.com/Blog/Article/suffix-array#outline__3_2
+//参考：http://midarekazu.g2.xrea.com/quicksort.html
 
 package s4.B223323;
 
-import java.lang.*;
-import java.util.Arrays;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
+import java.util.stream.IntStream;
 
 public class SuffixArray {
+    static final int parallelism = Runtime.getRuntime().availableProcessors();
     private int N;
     private int[] rank;
     private int[] tmp;
     private int[] sa;
     private int K;
-    private Runnable sort;
-    private static final int PROCESSOR_NUM = Runtime.getRuntime().availableProcessors();
 
-    public void createSuffixArray(byte[] s, int[] suffixArray) {
-        N = s.length;
-        rank = new int[N];
-        tmp = new int[N];
-        sa = suffixArray;
+    public void createSuffixArray(int[] suffixArray, int[] str, int[] tmp1, int[] tmp2, int N) {
+        if (N < 2) return;
+        this.N = N;
+        this.rank = str;
+        this.sa = suffixArray;
+        this.tmp = tmp2;
+        int[] t = tmp1;
         K = 1;
-        sort = new ParallelSort(PROCESSOR_NUM << 1);
+        ForkJoinPool pool = new ForkJoinPool(parallelism);
+        MergeSortA task = new MergeSortA(sa, 0, N, parallelism);
 
-        Arrays.parallelSetAll(rank, i -> s[i]);
-
-        for (; K < N; K <<= 1) {
-            sort.run();
-            int i = 0, j = 0, l = sa[0], ri = rank[l], rj, it = (l + K) < N ? rank[l + K] : -1, jt;
-            for (;;) {
-                tmp[l] = j;
-                if (++i == N) break;
+        for (;;) {
+            task.reinitialize();
+            pool.invoke(task);
+            if ((K << 1) >= N) break;
+            int i = 1, j = 0, l = sa[0], ri = rank[l], rj, it = (l + K) < N ? rank[l + K] : -1, jt;
+            tmp[l] = j;
+            while (i < N) {
                 l = sa[i];
                 rj = rank[l];
                 jt = (l + K) < N ? rank[l + K] : -1;
-                if (ri < rj) j++; else if (ri == rj && it < jt)  j++;
+                if (ri < rj || ri == rj && it < jt)  j++;
+                i++;
                 ri = rj;
                 it = jt;
+                tmp[l] = j;
             }
-            int[] t = tmp; tmp = rank; rank = t;
+            K <<= 1;
+            rank = tmp; tmp = t; t = rank;
         }
-        return;
+        this.N = 0;
+        this.rank = null;
+        this.sa = null;
+        this.tmp = null;
     }
 
-    // private int cmp(int i, int j) {
-    //     if (rank[i] != rank[j]) return rank[i] - rank[j];
-    //     int ik = i + K;
-    //     int jk = j + K;
-    //     return (ik < N ? rank[ik] : -1) - (jk < N ? rank[jk] : -1);
+    // public void isSorted() {
+    //     isSorted(sa, 0, N, "out");
+    // }
+    // public void isSorted(int[] array, int i, int n) {
+    //     isSorted(array, i, n, "out");
     // }
 
-    /* 参考:https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1332844948 */
-    private void msort(int[] data, int[] tmp, int left, int right) {
-        // int mid = (right + left) >> 1;
-        int len = right + left, l, r;
-        for (l = left; l < right; l+=2) {
-            int a = data[l], b = data[l+1];
-            if (a < b) {
-                tmp[l] = a;
-                tmp[l+1] = b;
-            } else {
-                tmp[l] = b;
-                tmp[l+1] = a;
-            }
-        }
-        if (l == right) tmp[l] = data[l];
-        for (int i = 4; i < len; i <<= 1){
-            l = left; r = left + i;
-            for (; r < right; r+=i, l+=i) {
-                merge(data, tmp, l, (r + l) >> 1, r);
-            }
-            merge(data, tmp, l, (l + right) >> 1, right);
-        }
-        // if(mid > left) msort(data, tmp, left, mid);
-        // ++mid;
-        // if(right > mid) msort(data, tmp, mid, right);
-        merge(data, tmp, left, (len + 2) >> 1, right);
-        // merge(data, tmp, left, mid, right);
+    // public void isSorted(int[] array, int i, int n, String msg) {
+    //     while (++i < n) {
+    //         if (cmp(array[i-1], array[i]) > 0) System.out.println(msg);
+    //     }
+    // }
+
+    private int cmp(int i, int j) {
+        if (rank[i] != rank[j]) return rank[i] - rank[j];
+        int ik = i + K;
+        int jk = j + K;
+        return ik >= N ? (jk > N ? 0 : -1) : (jk >= N ? 1 : rank[ik] - rank[jk]);
     }
 
-    private void merge(int[] data, int[] tmp, int left, int mid, int right) {
-        int lend = mid - 1, tp = left, l0 = left, N = right - left + 1;
-        if (left > lend || mid > right){
-            if (mid < right) {
-                System.arraycopy(tmp, l0, data, l0, N - right + mid - 1);
-                return;
-            } else {
-                System.arraycopy(data, left, tmp, tp, lend - left + 1);
-                System.arraycopy(tmp, l0, data, l0, N);
-                return;
-            }
-        }
-        final int K = this.K, NK = this.N - K;
-        int i = data[left], j = data[mid], ir = rank[i], jr = rank[j], it = i < NK ? rank[i + K] : -1, jt = j < NK ? rank[j + K] : -1;
-        for (;;) {
-            if (ir < jr || (ir == jr && it <= jt)) {
-                tmp[tp] = i;
-                if (left == lend) {
-                    System.arraycopy(tmp, l0, data, l0, N - right + mid - 1);
+    private final void merge(final int src[], final int dist[], final int left, final int mid, final int right, final int[] rank, final int K, final int N) {
+        int l = left, r = mid, tp = left;
+        int lval = src[l];
+        int rval = src[r];
+        int tmp;
+
+        final int Nk = N - K;
+        int ri = rank[lval], rj = rank[rval], ik = lval + K, jk = rval + K;
+        boolean ikout = lval >= Nk, jkout = rval >= Nk;
+
+        for(;;) {
+            if (ri < rj || (ri == rj && (ikout || (!jkout && rank[ik] <= rank[jk]))))  {
+                if (++l == mid) {
+                    dist[tp] = lval;
+                    System.arraycopy(src, r, dist, tp + 1, right - r);
                     return;
                 }
-                left++;
-                i = data[left];
-                ir = rank[i];
-                it = i < NK ? rank[i + K] : -1;
+                tmp = lval;
+                lval = src[l];
+                ik = lval + K;
+                ri = rank[lval];
+                ikout = lval >= Nk;
             } else {
-                tmp[tp] = j;
-                if (mid == right) {
-                    System.arraycopy(data, left, tmp, tp + 1, lend - left + 1);
-                    System.arraycopy(tmp, l0, data, l0, N);
-                    return; 
+                if (++r == right) {
+                    dist[tp] = rval;
+                    System.arraycopy(src, l, dist, tp + 1, mid - l);
+                    return;
                 }
-                mid++;
-                j = data[mid];
-                jr = rank[j];
-                jt = j < NK ? rank[j + K] : -1;
+                tmp = rval;
+                rval = src[r];
+                jk = rval + K;
+                rj = rank[rval];
+                jkout = rval >= Nk;
             }
-            tp++;
+            dist[tp++] = tmp;
         }
     }
 
-    public static class Nop implements Runnable {
-        private static final Nop instance = new Nop();
-        public void run() {}
+    //arrayに出力
+    private final void insertSortA(final int array[], final int left, final int right) {
+        int i, j, t;
+        i = array[left];
+        if (cmp(i, array[left + 1]) > 0) {
+            array[left] = array[left + 1]; array[left + 1] = i;
+        }
+        for (i = left + 2; i < right; i++) {
+            t = array[i];
+            if (cmp(array[i - 1], t) > 0){
+                j = i;
+                do {
+                    array[j] = array[j - 1];
+                    j--;
+                } while (j > left && cmp(t, array[j - 1]) < 0);
+                array[j] = t;
+            }
+        }
     }
 
-    public class RangeSortThread implements Runnable {
-        int left, right;
-        public RangeSortThread(int left, int right) {
-            this.left = left; this.right = right;
+    //tmpに出力
+    private final void insertSortB(final int array[], final int tmp[], final int left, final int right) {
+        int i = left + 1;
+        if (cmp(array[left], array[i]) <= 0) {
+            tmp[left] = array[left]; tmp[i] = array[i];
+        } else {
+            tmp[left] = array[i]; tmp[i] = array[left];
         }
-        public void run() {
-            msort(sa, tmp, left, right);
+        int j;
+        while (++i < right) {
+            if (cmp(tmp[i-1], array[i]) > 0){
+                j = i;
+                do {
+                    tmp[j] = tmp[j - 1];
+                    j--;
+                } while (j > left && cmp(array[i], tmp[j - 1]) < 0);
+                tmp[j] = array[i];
+            } else tmp[i] = array[i];
         }
     }
 
-    public class MargeThread implements Runnable {
-        Runnable a, b;
-        int left, right, mid;
+    private class SingleMergeSortB {
+        final int array[], left, mid, right;
+        final boolean haveTask;
+        SingleMergeSortA leftTask, rightTask;
 
-        public MargeThread(int left, int right, int processors) {
-            this.left = left; this.right = right; mid = (left + right) >> 1;
-            if (processors < 4 || right - left < 4) {
-                a = (mid > left) ? new RangeSortThread(left, mid) : Nop.instance;
-                ++mid;
-                b = (right > mid) ? new RangeSortThread(mid, right) : Nop.instance;
+        public SingleMergeSortB(final int[] array, final int left, final int right) {
+            this.array = array;
+            this.left = left;
+            this.mid = (left + right) >> 1;
+            this.right = right;
+            if (right - left > 8) {
+                haveTask = true;
+                leftTask = new SingleMergeSortA(array, left, mid);
+                rightTask = new SingleMergeSortA(array, mid, right);
+            } else haveTask = false;
+        }
+
+        public void sort(final int[] tmp, final int[] rank, final int K, final int N) {
+            if (haveTask) {
+                leftTask.sort(tmp, rank, K, N);
+                rightTask.sort(tmp, rank, K, N);
+                merge(array, tmp, left, mid, right, rank, K, N);
             } else {
-                int p1 = processors >> 1;
-                a = new MargeThread(left, mid, p1);
-                b = new MargeThread(++mid, right, processors - p1);
+                insertSortB(array, tmp, left, right);
             }
-        }
-
-        public void run() {
-            Thread t1 = new Thread(a);
-            t1.start();
-            Thread t2 = new Thread(b);
-            t2.start();
-            try {
-                t1.join(); t2.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            merge(sa, tmp, left, mid, right);
         }
     }
 
-    public class ParallelSort implements Runnable{
-        Runnable a, b;
-        int num, mid; //mid = (N + 1 >> 1)
+    private class SingleMergeSortA {
+        final int array[], left, mid, right;
+        final boolean haveTask;
+        SingleMergeSortB leftTask, rightTask;
 
-        public ParallelSort(int processors) {
-            num = N - 1; mid = num >> 1;
-            if (processors < 4 || num < 4) {
-                a = (mid > 0) ? new RangeSortThread(0, mid) : Nop.instance;
-                ++mid;
-                b = (num > mid) ? new RangeSortThread(mid, num) : Nop.instance;
+        public SingleMergeSortA(final int[] array, final int left, final int right) {
+            this.array = array;
+            this.left = left;
+            this.mid = (left + right) >> 1;
+            this.right = right;
+            if (right - left > 8) {
+                haveTask = true;
+                leftTask = new SingleMergeSortB(array, left, mid);
+                rightTask = new SingleMergeSortB(array, mid, right);
+            } else {haveTask = false;}
+        }
+        
+        public void sort(final int[] tmp, final int[] rank, final int K, final int N) {
+            if (haveTask) {
+                leftTask.sort(tmp, rank, K, N);
+                rightTask.sort(tmp, rank, K, N);
+                merge(tmp, array, left, mid, right, rank, K, N);
             } else {
-                int p1 = processors >> 1;
-                a = new MargeThread(0, mid, p1);
-                b = new MargeThread(++mid, num, processors - p1);
+                insertSortA(array, left, right);
+            }
+        }
+    }
+
+    /**
+     * 出力はtmp
+     */
+    private class MergeSortB extends RecursiveAction {
+        private final int threshold = 8;
+        final int[] array;
+        final int left, right, mid, n;
+        final boolean haveTask;
+        MergeSortA leftTask, rightTask;
+        SingleMergeSortA sleftTask, srightTask;
+        
+        public MergeSortB(final int array[], final int left, final int right, int parallelism) {
+            this.array = array;
+            this.n = right - left;
+            this.left = left;
+            this.mid = (left + right) >> 1;
+            this.right = right;
+
+            if ((parallelism >>= 1) > 0 && n > threshold) {
+                leftTask = new MergeSortA(array, left, mid, parallelism);
+                rightTask = new MergeSortA(array, mid, right, parallelism);
+                haveTask = true;
+            } else {
+                if (n > threshold) {
+                    sleftTask = new SingleMergeSortA(array, left, mid);
+                    srightTask = new SingleMergeSortA(array, mid, right);
+                }
+                haveTask = false;
             }
         }
 
-        public void run() {
-            Thread t1 = new Thread(a);
-            t1.start();
-            Thread t2 = new Thread(b);
-            t2.start();
-            try {
-                t1.join(); t2.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        @Override
+        protected void compute() {
+            if (haveTask) {
+                leftTask.reinitialize();
+                leftTask.fork();
+                rightTask.compute();
+                leftTask.join();
+                leftTask.reinitialize();
+                merge(array, tmp, left, mid, right, rank, K, N);
+            } else if (n > threshold){
+                sleftTask.sort(tmp, rank, K, N);
+                srightTask.sort(tmp, rank, K, N);
+                merge(array, tmp, left, mid, right, rank, K, N);
+            } else {
+                insertSortB(array, tmp, left, right);
             }
-            merge(sa, tmp, 0, mid, num);
         }
+    }
+
+    /**
+     * 出力はarray
+     */
+    private class MergeSortA extends RecursiveAction{
+        
+
+        private final int threshold = 8;
+        final int[] array;
+        final int left, right, mid, n;
+        final boolean haveTask;
+        MergeSortB leftTask, rightTask;
+        SingleMergeSortB sleftTask, srightTask;
+
+        public MergeSortA(final int array[], final int left, final int right, int parallelism) {
+            this.array = array;
+            this.n = right - left;
+            this.left = left;
+            this.mid = (left + right) >> 1;
+            this.right = right;
+
+            if ((parallelism >>= 1) > 0 && n > threshold) {
+                leftTask = new MergeSortB(array, left, mid, parallelism);
+                rightTask = new MergeSortB(array, mid, right, parallelism);
+                haveTask = true;
+            } else {
+                if (n > threshold) {
+                    sleftTask = new SingleMergeSortB(array, left, mid);
+                    srightTask = new SingleMergeSortB(array, mid, right);
+                }
+                haveTask = false;
+            }
+        }
+        @Override
+        protected void compute() {
+            if (haveTask) {
+                leftTask.reinitialize();
+                leftTask.fork();
+                rightTask.compute();
+                leftTask.join();
+                merge(tmp, array, left, mid, right, rank, K, N);
+            } else if (n > threshold) {
+                sleftTask.sort(tmp, rank, K, N);
+                srightTask.sort(tmp, rank, K, N);
+                merge(tmp, array, left, mid, right, rank, K, N);
+            } else {
+                insertSortA(array, left, right);
+            }
+        }
+    }
+
+
+    private final void printSuffixArray(byte[] str, int[] suffixArray, int n) {
+        System.out.println("printSuffixArray");
+        for(int i=0; i< n; i++) {
+            int s = suffixArray[i];
+            System.out.printf("suffixArray[%2d]=%2d:", i, s);
+            for(int j=s;j<n;j++) {
+                System.out.write(str[j]);
+            }
+            System.out.write('\n');
+        }
+    }
+
+    public static void main(String[] args) {
+        byte[] array = "Hi Ho Hi Ho Hi Ho Hi Ho".getBytes();
+
+        final int n = array.length;
+        int[] str = IntStream.range(0, n).parallel().map(i->array[i] & 0xFF).toArray();
+        int[] suffixArray = IntStream.range(0, n).parallel().toArray(), tmp1 = new int[n], tmp2 = new int[n];
+        SuffixArray sort = new SuffixArray();
+        sort.createSuffixArray(suffixArray, str, tmp1, tmp2, n);
+        sort.printSuffixArray(array, suffixArray, n);
     }
 }
