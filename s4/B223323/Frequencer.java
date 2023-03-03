@@ -203,13 +203,14 @@ public class Frequencer implements FrequencerInterface{
         int end = send;
         int spointer = suffixArray[sstart] + offset;
         int epointer = suffixArray[send-1] + offset;
+        int tepointer = targetSuffix[tend-1] + offset;
+        int targetIndex = tend;
         for(;;) {
             //1 targetをsuffixArrayから取得
             while (targetSuffix[tstart] + offset >= tlen) {
                 tstart++;
                 if (tstart >= tend) return;
             }
-            int targetIndex = tstart;
             byte target = myTarget[targetSuffix[tstart] + offset];
 
             // print(tstart, tend, sstart, send);
@@ -240,18 +241,17 @@ public class Frequencer implements FrequencerInterface{
                 if (sstart < end) epointer = suffixArray[end - 1] + offset;
             }
 
-            //3 targetで部分文字列の等しい部分を埋める(targetSuffixArrayを見ればよい)
-            // print(targetIndex,targetSuffix[targetIndex]);
-            if (end != sstart) {
-                double iq = C1 - Math.log(end - sstart);
-                do {
-                    memo[targetSuffix[targetIndex] + memoOffset] = iq;
-                    targetIndex++;
-                } while (targetIndex < tend && targetSuffix[targetIndex] + offset < tlen && myTarget[targetSuffix[targetIndex] + offset] == target);
-            } else {
-                while (++targetIndex < tend && targetSuffix[targetIndex] + offset < tlen && myTarget[targetSuffix[targetIndex] + offset] == target);
-                if (targetIndex < tend) calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1);
-                return;
+            //3 targetで部分文字列の等しい部分を探索
+            if (tepointer >= tlen || myTarget[tepointer] != target) {
+                int tmp = tstart;
+                for(;;) {
+                    int q = (tmp + targetIndex) >> 1;
+                    int suffixp = targetSuffix[q] + offset;
+                    if (tmp == q) { if (suffixp < tlen && myTarget[suffixp] > target) targetIndex--; break; }
+                    if (suffixp >= tlen || myTarget[suffixp] > target) targetIndex = q;
+                    else tmp = q;
+                }
+                tepointer = targetSuffix[targetIndex - 1] + offset;
             }
 
             //4 targetと異なる部分は再帰的に実行する
@@ -259,7 +259,15 @@ public class Frequencer implements FrequencerInterface{
                 calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1);
             }
 
-            //5 offsetを+1、関連パラメータの更新
+            //5 memoに書き込み freq=0の時は終了
+            if (end != sstart) {
+                double iq = C1 - Math.log(end - sstart);
+                for (int i = tstart; i < targetIndex; i++) {
+                    memo[targetSuffix[i] + memoOffset] = iq;
+                }
+            } else return;
+
+            //6 offsetを+1、関連パラメータの更新
             //calculate2_1(targetSuffix, tstart, targetIndex, spaceSuffix, sstart ,  end, memo, offset + 1, memoOffset + tlen - offset, C1);
             tend = targetIndex;
             send = end;
@@ -271,7 +279,8 @@ public class Frequencer implements FrequencerInterface{
     }
 
     public final double calculate2() {
-        final double memo[] = new double[(tlen * (tlen + 1)) >> 1], C1 = Math.log((double) slen), C0 = 1 / Math.log(2d);
+        if (tlen > 65535) return calculate(); //必要なメモリサイズがInteger.MAX_VALUEを超える
+        final double memo[] = new double[((tlen + 1) >> 1) * (tlen + ((tlen & 1) ^ 1))], C1 = Math.log((double) slen), C0 = 1 / Math.log(2d);
         int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray(), tmparr = new int[tlen], tmparr2 = new int[tlen];
         int[] targetStr = IntStream.range(0, tlen).parallel().map(i -> myTarget[i] & 0xFF).toArray();
 
