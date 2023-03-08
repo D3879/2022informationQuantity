@@ -1,5 +1,7 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
 
+import java.util.Random;
+
 import s4.specification.*;
 
 /* What is imported from s4.specification
@@ -53,7 +55,7 @@ public class InformationEstimator implements InformationEstimatorInterface{
     public final double estimation() {
         if (myTargetNotReady) return 0d; // returns 0.0 when the target is not set or Target's length is zero;
         if (mySpaceNotReady) return Double.MAX_VALUE; // It returns Double.MAX_VALUE, when the true value is infinite, or the space is not set.
-        return myFrequencer.calculate2();
+        return myFrequencer.calculate3();
     }
 
     private final double slowEstimation(){
@@ -148,12 +150,30 @@ public class InformationEstimator implements InformationEstimatorInterface{
         myObject.setTarget("31313131".getBytes());
         value = myObject.check();
         System.out.println(">31313131 "+value);
-        /* */
-        byte[] space = new byte[1048576];
-        byte[] target = new byte[10240];
 
-        // java.security.SecureRandom rnd = new java.security.SecureRandom();
-        // rnd.setSeed(System.nanoTime());
+
+        // byte[] space = new byte[100];
+        // byte[] target = new byte[5];
+
+        // Random rnd = new Random();
+        // long seed = System.nanoTime();
+        // Frequencer.print("seed:", seed);
+        // rnd.setSeed(seed);
+        // rnd.nextBytes(target);
+        // rnd.nextBytes(space);
+
+        // Frequencer frequencer = new Frequencer();
+        // frequencer.setSpace(space);
+        // frequencer.setTarget(target);
+        // System.out.println(frequencer.calculate2());
+        /* */
+        byte[] space = new byte[1000000];
+        byte[] target = new byte[1000];
+
+        // Random rnd = new Random();
+        // long seed = System.nanoTime();
+        // Frequencer.print("seed:", seed);
+        // rnd.setSeed(seed);
         // rnd.nextBytes(target);
         // rnd.nextBytes(space);
         
@@ -163,10 +183,12 @@ public class InformationEstimator implements InformationEstimatorInterface{
         myObject.setSpace(space);
         long t2 = System.currentTimeMillis();
         myObject.setTarget(target);
-        value = myObject.estimation();
         long t3 = System.currentTimeMillis();
+        value = myObject.estimation();
+        long t4 = System.currentTimeMillis();
         System.out.println(">set space in " + (t2 - t1) + " ms");
-        System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t3 - t0) + " ms");
+        System.out.println(">set target in " + (t3 - t2) + " ms");
+        System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t4 - t0) + " ms");
         /* */
     }
 }
