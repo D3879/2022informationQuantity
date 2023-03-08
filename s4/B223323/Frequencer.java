@@ -72,7 +72,7 @@ public class Frequencer implements FrequencerInterface{
         suffixArray = IntStream.range(0, slen).parallel().toArray();
         int[] tmp1 = new int[slen];
         int[] tmp2 = new int[slen];
-        int[] str = IntStream.range(0, slen).parallel().map(i->space[i] & 0xFF).toArray();
+        int[] str = IntStream.range(0, slen).parallel().map(i->space[i]).toArray();
         sa.createSuffixArray(suffixArray, str, tmp1, tmp2, slen);
         suffix0 = suffixArray[0];
         suffixl = suffixArray[slen - 1];
