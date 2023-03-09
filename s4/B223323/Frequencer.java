@@ -217,7 +217,7 @@ public class Frequencer implements FrequencerInterface{
                         if (suffixp >= slen || mySpace[suffixp] < item) start = q;
                         else tmp = q;
                     }
-                    if (start == end) { return; }
+                    if (start == end) { this.start = this.end = start; return; }
                 }
                 if (epointer >= slen || mySpace[epointer] != item) {
                     int tmp = start;
@@ -229,9 +229,9 @@ public class Frequencer implements FrequencerInterface{
                         if (suffixp >= slen || mySpace[suffixp] > item) end = q;
                         else tmp = q;
                     }
-                    if (start == end) { return; }
+                    if (start == end) { this.start = this.end = start; return; }
                 }
-                iq = C1 - Math.log(end - start);
+                iq = C1 - Math.log10(end - start);
                 this.start = start;
                 this.end = end;
             }
@@ -243,13 +243,13 @@ public class Frequencer implements FrequencerInterface{
                 while (target != p.item) {
                     if (target < p.item) {
                         if (p.left == null) { //左に追加
-                            p.left = new Node(target, istart, start, offset);
+                            p.left = new Node(target, p.istart, p.start, offset);
                             return p.left;
                         }
                         p = p.left;
                     } else {
                         if (p.right == null) { //右に追加
-                            p.right = new Node(target, end, iend, offset);
+                            p.right = new Node(target, p.end, p.iend, offset);
                             return p.right;
                         }
                         p = p.right;
@@ -270,7 +270,7 @@ public class Frequencer implements FrequencerInterface{
 
             //return iq == Double.MAX_VALUE
             public final boolean max() {
-                return end == 0;
+                return start == end;
             }
 
             //maxがfalseの時のみ有効
@@ -280,15 +280,19 @@ public class Frequencer implements FrequencerInterface{
         }
     }
 
+    int END = 215;
+
     public final double calculate3() {
-        final double memo[] = new double[tlen], C0 = 1 / Math.log(2d);
-        final Tree tree = new Tree(Math.log(slen), myTarget[tlen - 1]);
+        final double memo[] = new double[tlen], C0 = 1 / Math.log10(2d);
+        final Tree tree = new Tree(Math.log10(slen), myTarget[tlen - 1]);
         int s, targetstart = s = tlen - 1;
         Node node = tree.root;
         double min = Double.MAX_VALUE;
         for (;;) {
             if (node.max()) {
-                if (targetstart == 0) return min == Double.MAX_VALUE ? Double.MAX_VALUE : min * C0;
+                if (targetstart == 0) {
+                    return min == Double.MAX_VALUE ? Double.MAX_VALUE : min * C0;
+                }
                 memo[--targetstart] = min;
                 s = targetstart; min = Double.MAX_VALUE;
                 node = tree.root.get(myTarget[s]);
@@ -296,7 +300,9 @@ public class Frequencer implements FrequencerInterface{
                 double iq = memo[s] + node.iq();
                 if (iq < min) min = iq;
                 if (++s == tlen) {
-                    if (targetstart == 0) return min * C0;
+                    if (targetstart == 0) {
+                        return min * C0;
+                    }
                     memo[--targetstart] = min;
                     s = targetstart; min = Double.MAX_VALUE;
                     node = tree.root.get(myTarget[s]);
@@ -308,165 +314,6 @@ public class Frequencer implements FrequencerInterface{
     }
 
 
-    /**
-     * 一応ok？
-     * 空間使用量がO(n^2)
-     * 
-     * targetとspaceのsuffixArrayを用いてすべての部分文字列の頻度を求め、
-     * log(slen/freq)をmemoに記録する
-     * 
-     * memoのサイズは計算できる場所からiqを計算すれば少しは減らせるはず
-     * 
-     * @param targetSuffix targetのsuffixArray
-     * @param tstart       targetのsuffixArrayの範囲
-     * @param tend         targetのsuffixArrayの範囲
-     * @param spaceSuffix  spaceのsuffixArray
-     * @param sstart       spaceのsuffixArrayの範囲
-     * @param send         spaceのsuffixArrayの範囲
-     * @param memo         Double.MAX_VALUEで初期化されたサイズ[tlen*(tlen+1)/2]の配列
-     * @param offset       offset文字目から見る
-     * @param memoOffset   メモ記入時のoffset
-     * @param C1           log(slen)
-     */
-    public final boolean calculate2_1(final int[] targetSuffix, int tstart, int tend, final int[] spaceSuffix, int sstart, int send, final double[] memo, int offset, int memoOffset, final double C1) {
-        int end = send;
-        int spointer = suffixArray[sstart] + offset;
-        int epointer = suffixArray[send-1] + offset;
-        int tepointer = targetSuffix[tend-1] + offset;
-        int targetIndex = tend;
-        for(;;) {
-            //1 targetをsuffixArrayから取得
-            while (targetSuffix[tstart] + offset >= tlen) {
-                tstart++;
-                if (tstart >= tend) return false;
-            }
-            byte target = myTarget[targetSuffix[tstart] + offset];
-
-            // print(tstart, tend, sstart, send);
-            
-            //2 targetのfreqを計算(sstart,endを求める)
-            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
-                int tmp = end;
-                /* StartIndex */
-                for (;;) {
-                    int q = (sstart + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
-                    if (sstart == q) { if (suffixp >= slen || mySpace[suffixp] < target) sstart++; break; }
-                    if (suffixp >= slen || mySpace[suffixp] < target) sstart = q;
-                    else tmp = q;
-                }
-                if (sstart < end) spointer = suffixArray[sstart] + offset;
-            }
-            if (sstart < end && (epointer >= slen || mySpace[epointer] != target)) {
-                int tmp = sstart;
-                /* EndIndex */
-                for(;;) {
-                    int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
-                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
-                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
-                    else tmp = q;
-                }
-                if (sstart < end) epointer = suffixArray[end - 1] + offset;
-            }
-
-            //3 targetで部分文字列の等しい部分を探索
-            if (tepointer >= tlen || myTarget[tepointer] != target) {
-                int tmp = tstart;
-                for(;;) {
-                    int q = (tmp + targetIndex) >> 1;
-                    int suffixp = targetSuffix[q] + offset;
-                    if (tmp == q) { if (suffixp < tlen && myTarget[suffixp] > target) targetIndex--; break; }
-                    if (suffixp >= tlen || myTarget[suffixp] > target) targetIndex = q;
-                    else tmp = q;
-                }
-                tepointer = targetSuffix[targetIndex - 1] + offset;
-            }
-
-            //4 targetと異なる部分は再帰的に実行する
-            if (targetIndex < tend && end < send) {
-                if (calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1)) return true;
-            }
-
-            //5 memoに書き込み freq=0の時は終了
-            if (end != sstart) {
-                double iq = C1 - Math.log(end - sstart);
-                for (int i = tstart; i < targetIndex; i++) {
-                    memo[targetSuffix[i] + memoOffset] = iq;
-                }
-            } else return offset == 0;
-
-            //6 offsetを+1、関連パラメータの更新
-            //calculate2_1(targetSuffix, tstart, targetIndex, spaceSuffix, sstart ,  end, memo, offset + 1, memoOffset + tlen - offset, C1);
-            tend = targetIndex;
-            send = end;
-            memoOffset += tlen - offset;
-            offset++;
-            spointer++;
-            epointer++;
-        }
-    }
-
-    public final double calculate2() {
-        if (tlen > 65535) return calculate(); //必要なメモリサイズがInteger.MAX_VALUEを超える
-        final double memo[] = new double[((tlen + 1) >> 1) * (tlen + ((tlen & 1) ^ 1))], C1 = Math.log((double) slen), C0 = 1 / Math.log(2d);
-        int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray(), tmparr = new int[tlen], tmparr2 = new int[tlen];
-        int[] targetStr = IntStream.range(0, tlen).parallel().map(i -> myTarget[i] & 0xFF).toArray();
-
-        sa.createSuffixArray(targetSuffix, targetStr, tmparr, tmparr2, tlen);
-        // printSuffixArray(targetSuffix, myTarget, tlen);
-
-        Arrays.fill(memo, Double.MAX_VALUE);
-        if (calculate2_1(targetSuffix, 0, tlen, suffixArray, 0, slen, memo, 0, 0, C1)) return Double.MAX_VALUE;
-
-        // memoの出力
-        // StringBuilder sb = new StringBuilder();
-        // for (int i = 0, offset = 0; i < tlen;) {
-        //     for (int j = i; j < tlen; j++) {
-        //         sb.append(memo[j + offset] * C0);
-        //         sb.append(' ');
-        //     }
-        //     sb.append('\n');
-        //     i++;
-        //     offset += tlen - i;
-        // }
-        // System.out.println(sb.toString());
-        
-        //結合
-        for (int i = 2; i <= tlen; i++) {
-            int j = tlen - i;
-            int offset = 0;
-            for (int k = 1; k < i; k++) {
-                //print("1:", j + offset, j + k);
-                memo[j + offset] += memo[j + k];
-                offset += tlen - k + 1;
-            }
-
-            double min = Double.MAX_VALUE;
-            j = tlen - i;
-            offset = 0;
-            for (int k = 0; k < i; k++) {
-                //print("2:", j + offset);
-                if (min > memo[j + offset]) min = memo[j + offset];
-                offset += tlen - k;
-            }
-            memo[tlen-i] = min;
-        }
-
-        // sb.setLength(0);
-        // for (int i = 0, offset = 0; i < tlen;) {
-        //     for (int j = i; j < tlen; j++) {
-        //         sb.append(memo[j + offset] * C0);
-        //         sb.append(' ');
-        //     }
-        //     sb.append('\n');
-        //     i++;
-        //     offset += tlen - i;
-        // }
-        // System.out.println(sb.toString());
-        
-        return memo[0] >= Double.MAX_VALUE ? Double.MAX_VALUE : memo[0] * C0;
-    }
     
     /* estimationの関数呼び出しを展開 */
     public final double calculate() { //result.length = target.length
@@ -518,6 +365,7 @@ public class Frequencer implements FrequencerInterface{
                 }
                 epointer = suffixArray[end - 1] + p;
             }
+            
             freq = end - start;
             if (freqc != freq) {
                 freqc = freq;
@@ -626,17 +474,53 @@ public class Frequencer implements FrequencerInterface{
 
     /* */
     //DEBUG用
-    public static <T> void print(T ...i) {
-        print("", i);
-    }
-    public static <T> void print(String header, T ...i) { //[debug]数値の一括出力
-        System.out.print(header);
-        for (T object : i) {
+    public static void print(Object ...i) {
+        for (Object object : i) {
             System.out.print(object);
             System.out.print(' ');
         }
         System.out.println();
+    }
+    public static void print(String header, Object ...i) { //[debug]数値の一括出力
+        System.out.print(header);
+        print(i);
     }/**/
+    public static <T> void printArray(T[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
+    public static void printArray(double[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
+    public static void printArray(int[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
+    public static void printArray(byte[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
+    public static void printArray(char[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
+    public static void printArray(long[] array) {
+        for (int i = 0; i < array.length; i++) {
+            System.out.print(array[i]);
+            System.out.print(' ');
+        }
+    }
 
     // Suffix Arrayを使ったプログラムのホワイトテストは、
     // privateなメソッドとフィールドをアクセスすることが必要なので、
@@ -708,5 +592,166 @@ public class Frequencer implements FrequencerInterface{
             System.out.println("STOP");
             e.printStackTrace();
         }
+    }
+
+    
+    /**
+     * 一応ok？
+     * 空間使用量がO(n^2)
+     * 
+     * targetとspaceのsuffixArrayを用いてすべての部分文字列の頻度を求め、
+     * log(slen/freq)をmemoに記録する
+     * 
+     * memoのサイズは計算できる場所からiqを計算すれば少しは減らせるはず
+     * 
+     * @param targetSuffix targetのsuffixArray
+     * @param tstart       targetのsuffixArrayの範囲
+     * @param tend         targetのsuffixArrayの範囲
+     * @param spaceSuffix  spaceのsuffixArray
+     * @param sstart       spaceのsuffixArrayの範囲
+     * @param send         spaceのsuffixArrayの範囲
+     * @param memo         Double.MAX_VALUEで初期化されたサイズ[tlen*(tlen+1)/2]の配列
+     * @param offset       offset文字目から見る
+     * @param memoOffset   メモ記入時のoffset
+     * @param C1           log(slen)
+     */
+    public final boolean calculate2_1(final int[] targetSuffix, int tstart, int tend, final int[] spaceSuffix, int sstart, int send, final double[] memo, int offset, int memoOffset, final double C1) {
+        int end = send;
+        int spointer = suffixArray[sstart] + offset;
+        int epointer = suffixArray[send-1] + offset;
+        int tepointer = targetSuffix[tend-1] + offset;
+        int targetIndex = tend;
+        for(;;) {
+            //1 targetをsuffixArrayから取得
+            while (targetSuffix[tstart] + offset >= tlen) {
+                tstart++;
+                if (tstart >= tend) return false;
+            }
+            byte target = myTarget[targetSuffix[tstart] + offset];
+
+            // print(tstart, tend, sstart, send);
+            
+            //2 targetのfreqを計算(sstart,endを求める)
+            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
+                int tmp = end;
+                /* StartIndex */
+                for (;;) {
+                    int q = (sstart + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (sstart == q) { if (suffixp >= slen || mySpace[suffixp] < target) sstart++; break; }
+                    if (suffixp >= slen || mySpace[suffixp] < target) sstart = q;
+                    else tmp = q;
+                }
+                if (sstart < end) spointer = suffixArray[sstart] + offset;
+            }
+            if (sstart < end && (epointer >= slen || mySpace[epointer] != target)) {
+                int tmp = sstart;
+                /* EndIndex */
+                for(;;) {
+                    int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
+                    else tmp = q;
+                }
+                if (sstart < end) epointer = suffixArray[end - 1] + offset;
+            }
+
+            //3 targetで部分文字列の等しい部分を探索
+            if (tepointer >= tlen || myTarget[tepointer] != target) {
+                int tmp = tstart;
+                for(;;) {
+                    int q = (tmp + targetIndex) >> 1;
+                    int suffixp = targetSuffix[q] + offset;
+                    if (tmp == q) { if (suffixp < tlen && myTarget[suffixp] > target) targetIndex--; break; }
+                    if (suffixp >= tlen || myTarget[suffixp] > target) targetIndex = q;
+                    else tmp = q;
+                }
+                tepointer = targetSuffix[targetIndex - 1] + offset;
+            }
+
+            //4 targetと異なる部分は再帰的に実行する
+            if (targetIndex < tend && end < send) {
+                if (calculate2_1(targetSuffix, targetIndex, tend, spaceSuffix, end, send, memo, offset, memoOffset, C1)) return true;
+            }
+
+            //5 memoに書き込み freq=0の時は終了
+            if (end != sstart) {
+                double iq = C1 - Math.log10(end - sstart);
+                for (int i = tstart; i < targetIndex; i++) {
+                    memo[targetSuffix[i] + memoOffset] = iq;
+                }
+            } else return offset == 0;
+
+            //6 offsetを+1、関連パラメータの更新
+            //calculate2_1(targetSuffix, tstart, targetIndex, spaceSuffix, sstart ,  end, memo, offset + 1, memoOffset + tlen - offset, C1);
+            tend = targetIndex;
+            send = end;
+            memoOffset += tlen - offset;
+            offset++;
+            spointer++;
+            epointer++;
+        }
+    }
+
+    public final double calculate2() {
+        if (tlen > 65535) return calculate(); //必要なメモリサイズがInteger.MAX_VALUEを超える
+        final double memo[] = new double[((tlen + 1) >> 1) * (tlen + ((tlen & 1) ^ 1))], C1 = Math.log10((double) slen), C0 = 1 / Math.log10(2d);
+        int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray(), tmparr = new int[tlen], tmparr2 = new int[tlen];
+        int[] targetStr = IntStream.range(0, tlen).parallel().map(i -> myTarget[i] & 0xFF).toArray();
+
+        sa.createSuffixArray(targetSuffix, targetStr, tmparr, tmparr2, tlen);
+        // printSuffixArray(targetSuffix, myTarget, tlen);
+
+        Arrays.fill(memo, Double.MAX_VALUE);
+        if (calculate2_1(targetSuffix, 0, tlen, suffixArray, 0, slen, memo, 0, 0, C1)) return Double.MAX_VALUE;
+
+        // memoの出力
+        // StringBuilder sb = new StringBuilder();
+        // for (int i = 0, offset = 0; i < tlen;) {
+        //     for (int j = i; j < tlen; j++) {
+        //         sb.append(memo[j + offset] * C0);
+        //         sb.append(' ');
+        //     }
+        //     sb.append('\n');
+        //     i++;
+        //     offset += tlen - i;
+        // }
+        // System.out.println(sb.toString());
+        
+        //結合
+        for (int i = 2; i <= tlen; i++) {
+            int j = tlen - i;
+            int offset = 0;
+            for (int k = 1; k < i; k++) {
+                //print("1:", j + offset, j + k);
+                memo[j + offset] += memo[j + k];
+                offset += tlen - k + 1;
+            }
+
+            double min = Double.MAX_VALUE;
+            j = tlen - i;
+            offset = 0;
+            for (int k = 0; k < i; k++) {
+                //print("2:", j + offset);
+                if (min > memo[j + offset]) min = memo[j + offset];
+                offset += tlen - k;
+            }
+            memo[tlen-i] = min;
+        }
+
+        // sb.setLength(0);
+        // for (int i = 0, offset = 0; i < tlen;) {
+        //     for (int j = i; j < tlen; j++) {
+        //         sb.append(memo[j + offset] * C0);
+        //         sb.append(' ');
+        //     }
+        //     sb.append('\n');
+        //     i++;
+        //     offset += tlen - i;
+        // }
+        // System.out.println(sb.toString());
+        
+        return memo[0] >= Double.MAX_VALUE ? Double.MAX_VALUE : memo[0] * C0;
     }
 }
