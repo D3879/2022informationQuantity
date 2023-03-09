@@ -193,40 +193,40 @@ public class Frequencer implements FrequencerInterface{
         public class Node {
             private final byte item;
             private Node left, right, next;
-            private int start, end; //itemの範囲
-            private int istart, iend; //初期範囲
-            private int offset;
+            private final int start, end; //itemの範囲
+            private final int istart, iend; //初期範囲
+            private final int offset;
             private double iq;
 
-            public Node(byte a, int start, int end, int offset) {
-                item = a;
-                if (start >= end) { return; }
+            public Node(final byte target, int start, int end, final int offset) {
+                item = target;
                 istart = start;
                 iend = end;
                 this.offset = offset;
+                if (start == end) { this.start = this.end = start; return; }
                 final int spointer = suffixArray[start] + offset, epointer = suffixArray[end-1] + offset;
                 
-                //2 targetのfreqを計算(sstart,endを求める)
-                if (spointer >= slen || mySpace[spointer] != item) { //startの位置が正しくない場合
+                //2 targetのfreqを計算(start,endを求める)
+                if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
                     int tmp = end;
                     /* StartIndex */
                     for (;;) {
                         int q = (start + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < item
-                        if (start == q) { if (suffixp >= slen || mySpace[suffixp] < item) start++; break; }
-                        if (suffixp >= slen || mySpace[suffixp] < item) start = q;
+                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                        if (start == q) { if (suffixp >= slen || mySpace[suffixp] < target) start++; break; }
+                        if (suffixp >= slen || mySpace[suffixp] < target) start = q;
                         else tmp = q;
                     }
                     if (start == end) { this.start = this.end = start; return; }
                 }
-                if (epointer >= slen || mySpace[epointer] != item) {
+                if (epointer >= slen || mySpace[epointer] != target) {
                     int tmp = start;
                     /* EndIndex */
                     for(;;) {
                         int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < item
-                        if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > item) end--; break;}
-                        if (suffixp >= slen || mySpace[suffixp] > item) end = q;
+                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                        if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                        if (suffixp >= slen || mySpace[suffixp] > target) end = q;
                         else tmp = q;
                     }
                     if (start == end) { this.start = this.end = start; return; }
@@ -238,7 +238,7 @@ public class Frequencer implements FrequencerInterface{
 
             //同一offset内でtargetを探索し、一致するノードを返却
             //未定義の場合は定義する
-            public final Node get(byte target) {               
+            public final Node get(final byte target) {               
                 Node p = this;
                 while (target != p.item) {
                     if (target < p.item) {
@@ -280,8 +280,19 @@ public class Frequencer implements FrequencerInterface{
         }
     }
 
-    int END = 215;
-
+    /**
+     * spaceはほとんど処理時間に影響を与えない
+     * targetは2乗のオーダーで処理時間に影響を与える
+     * 
+     * 改善案：１文字として扱う長さを可変にし、疑似的にtargetの長さを短くする？
+     * 改善案2： targetの連続する2文字がspaceに存在しない場合、その間が必ず区切りになるので、targetを分割し、それぞれの結果の和を結果とする
+     * 改善案3： 何らかの方法で処理中に区切りを見つけ、targetを分割する
+     * 改善案4： 下限のチェック
+     * 
+     * freq=0かつ対象の文字列の長さが2以上のとき、文字列の間のいずれかに分割位置が一つ以上存在する。 ←　これをうまく使いたい
+     * 
+     * @return
+     */
     public final double calculate3() {
         final double memo[] = new double[tlen], C0 = 1 / Math.log10(2d);
         final Tree tree = new Tree(Math.log10(slen), myTarget[tlen - 1]);
@@ -289,10 +300,18 @@ public class Frequencer implements FrequencerInterface{
         Node node = tree.root;
         double min = Double.MAX_VALUE;
         for (;;) {
+            // if (targetstart == tlen - END) {
+            //     return memo[tlen - END];
+            // }
+
+            // if (targetstart < tlen - END + 2) {
+            //     print(s, node.item, node.start, node.end);
+            // }
             if (node.max()) {
                 if (targetstart == 0) {
                     return min == Double.MAX_VALUE ? Double.MAX_VALUE : min * C0;
                 }
+
                 memo[--targetstart] = min;
                 s = targetstart; min = Double.MAX_VALUE;
                 node = tree.root.get(myTarget[s]);
@@ -313,7 +332,7 @@ public class Frequencer implements FrequencerInterface{
         }
     }
 
-
+    // int END = 36678;
     
     /* estimationの関数呼び出しを展開 */
     public final double calculate() { //result.length = target.length
@@ -326,6 +345,9 @@ public class Frequencer implements FrequencerInterface{
         int epointer = suffixl; //suffixArray[end] + p
         double min = DOUBLE_MAX, cache = 0d, iq;
         for (;;) {
+            // if (targetstart == tlen - END) {
+            //     return memo[tlen - END];
+            // }
             byte target = myTarget[s];
             if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
                 tmp = end;
@@ -365,6 +387,10 @@ public class Frequencer implements FrequencerInterface{
                 }
                 epointer = suffixArray[end - 1] + p;
             }
+
+            // if (targetstart < tlen - END + 2) {
+            //     print(s, target, start, end);
+            // }
             
             freq = end - start;
             if (freqc != freq) {

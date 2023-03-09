@@ -168,41 +168,48 @@ public class InformationEstimator implements InformationEstimatorInterface{
         // System.out.println(frequencer.calculate2());
         /* */
         byte[] space = new byte[1000000];
-        byte[] target = new byte[1000];
+        byte[] target = new byte[100000];
 
         Random rnd = new Random();
-        long seed = 174754499718158L; //System.nanoTime();
+        long seed = 201957750703708L; //System.nanoTime();
         Frequencer.print("seed:", seed);
         rnd.setSeed(seed);
         rnd.nextBytes(target);
         rnd.nextBytes(space);
         
-        // long t0 = System.currentTimeMillis();
-        // myObject = new InformationEstimator();
-        // long t1 = System.currentTimeMillis();
-        // myObject.setSpace(space);
-        // long t2 = System.currentTimeMillis();
-        // myObject.setTarget(target);
-        // long t3 = System.currentTimeMillis();
-        // value = myObject.estimation();
-        // long t4 = System.currentTimeMillis();
-        // System.out.println(">set space in " + (t2 - t1) + " ms");
-        // System.out.println(">set target in " + (t3 - t2) + " ms");
-        // System.out.println(">calculate in " + (t4 - t3) + " ms");
-        // System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t4 - t0) + " ms");
-        
+        long t0 = System.currentTimeMillis();
         myObject = new InformationEstimator();
+        long t1 = System.currentTimeMillis();
         myObject.setSpace(space);
+        long t2 = System.currentTimeMillis();
         myObject.setTarget(target);
+        long t3 = System.currentTimeMillis();
+        value = myObject.estimation();
+        long t4 = System.currentTimeMillis();
+        System.out.println(">set space in " + (t2 - t1) + " ms");
+        System.out.println(">set target in " + (t3 - t2) + " ms");
+        System.out.println(">calculate in " + (t4 - t3) + " ms");
+        System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t4 - t0) + " ms");
+        
+        t0 = System.currentTimeMillis();
+        double value2 = myObject.myFrequencer.calculate();
+        t1 = System.currentTimeMillis();
 
-        double v1 = 0d, v2 = 0d;
-        v1 = myObject.myFrequencer.calculate();
-        System.out.println("cal :" + v1);
-        v2 = myObject.myFrequencer.calculate3();
-        System.out.println("cal3:" + v2);
+        System.out.println(">old calculate "+ value2 +" in " + (t1 - t0) + " ms");
+
+        if (value != value2) System.out.println("WRONG");
+        // myObject = new InformationEstimator();
+        // myObject.setSpace(space);
+        // myObject.setTarget(target);
+
+        // double v1 = 0d, v2 = 0d;
+        // v1 = myObject.myFrequencer.calculate();
+        // System.out.println("cal :" + v1);
+        // v2 = myObject.myFrequencer.calculate3();
+        // System.out.println("cal3:" + v2);
 
         // while (v1 == v2) {
-        //     myObject.myFrequencer.END++;
+        //     myObject.myFrequencer.END+=1;
         //     v1 = myObject.myFrequencer.calculate();
         //     v2 = myObject.myFrequencer.calculate3();
         // }
