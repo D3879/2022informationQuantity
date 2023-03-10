@@ -193,7 +193,7 @@ public class Frequencer implements FrequencerInterface{
         public class Node {
             private final byte item;
             private Node left, right, next;
-            private final int start, end; //itemの範囲
+            private final int start, end; //itemの範囲 freq=0でもしっかり設定する必要がある。　←　次のノード作成の参考にしているため
             private final int istart, iend; //初期範囲
             private final int offset;
             private double iq;
@@ -281,15 +281,19 @@ public class Frequencer implements FrequencerInterface{
     }
 
     /**
-     * spaceはほとんど処理時間に影響を与えない
+     * spaceはほとんど処理時間に影響を与えない。おそらくlogオーダー
      * targetは2乗のオーダーで処理時間に影響を与える
      * 
-     * 改善案：１文字として扱う長さを可変にし、疑似的にtargetの長さを短くする？
-     * 改善案2： targetの連続する2文字がspaceに存在しない場合、その間が必ず区切りになるので、targetを分割し、それぞれの結果の和を結果とする
-     * 改善案3： 何らかの方法で処理中に区切りを見つけ、targetを分割する
-     * 改善案4： 下限のチェック
+     * 改善案1：１文字として扱う長さを可変にし、疑似的にtargetの長さを短くし、これを基にiq計算　→　本当に可能？　考える必要あり
+     * 改善案2： targetの連続する2文字がspaceに存在しない場合、その間が必ず区切りになるので、targetを分割し、それぞれの結果の和を結果とする →　意味がない
+     * 改善案3： 何らかの方法で処理中に区切りを見つけ、targetを分割する　→　区切りを見つける方法が思いつかない
+     * 改善案4： 下限のチェック　→　ランダムケースで意味がなさそう
      * 
-     * freq=0かつ対象の文字列の長さが2以上のとき、文字列の間のいずれかに分割位置が一つ以上存在する。 ←　これをうまく使いたい
+     * calculate()と比較して
+     * 空間使用量はtreeの分だけ増加
+     * ランダムケース：1.2~2.0倍程度の改善がみられる
+     * 最悪ケース：spaceの大きさが大きくなるほど改善がみられる 参考：space:1MB target:10k の時7倍程度 space:10MB target:10k の時15倍程度
+     * 処理時間が悪化するケースは今のところ確認できていない
      * 
      * @return
      */
@@ -622,7 +626,7 @@ public class Frequencer implements FrequencerInterface{
 
     
     /**
-     * 一応ok？
+     * calculateと結果が変わる　→　どちらかにバグあり　→　多分こちら
      * 空間使用量がO(n^2)
      * 
      * targetとspaceのsuffixArrayを用いてすべての部分文字列の頻度を求め、

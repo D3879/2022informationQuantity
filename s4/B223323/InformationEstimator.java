@@ -1,5 +1,6 @@
 package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
 
+import java.security.SecureRandom;
 import java.util.Random;
 
 import s4.specification.*;
@@ -117,39 +118,39 @@ public class InformationEstimator implements InformationEstimatorInterface{
     public static void main(String[] args) {
         InformationEstimator myObject;
         double value;
-        myObject = new InformationEstimator();
-        myObject.setSpace("abc".getBytes());
-        myObject.setTarget("abc".getBytes());
-        value = myObject.check();
-        System.out.println(">a "+value);
-        myObject.setSpace("3210321001230123".getBytes());
-        myObject.setTarget("0".getBytes());
-        value = myObject.check();
-        System.out.println(">0 "+value);
-        myObject.setTarget("01".getBytes());
-        value = myObject.check();
-        System.out.println(">01 "+value);
-        myObject.setTarget("0123".getBytes());
-        value = myObject.check();
-        System.out.println(">0123 "+value);
-        myObject.setTarget("00".getBytes());
-        value = myObject.check();
-        System.out.println(">00 "+value);
-        myObject.setTarget("4".getBytes());
-        value = myObject.check();
-        System.out.println(">4 "+value);
-        myObject.setTarget("321".getBytes());
-        value = myObject.check();
-        System.out.println(">321 "+value);
-        myObject.setTarget("3210".getBytes());
-        value = myObject.check();
-        System.out.println(">3210 "+value);
-        myObject.setTarget("32121".getBytes());
-        value = myObject.check();
-        System.out.println(">32121 "+value);
-        myObject.setTarget("31313131".getBytes());
-        value = myObject.check();
-        System.out.println(">31313131 "+value);
+        // myObject = new InformationEstimator();
+        // myObject.setSpace("abc".getBytes());
+        // myObject.setTarget("abc".getBytes());
+        // value = myObject.check();
+        // System.out.println(">a "+value);
+        // myObject.setSpace("3210321001230123".getBytes());
+        // myObject.setTarget("0".getBytes());
+        // value = myObject.check();
+        // System.out.println(">0 "+value);
+        // myObject.setTarget("01".getBytes());
+        // value = myObject.check();
+        // System.out.println(">01 "+value);
+        // myObject.setTarget("0123".getBytes());
+        // value = myObject.check();
+        // System.out.println(">0123 "+value);
+        // myObject.setTarget("00".getBytes());
+        // value = myObject.check();
+        // System.out.println(">00 "+value);
+        // myObject.setTarget("4".getBytes());
+        // value = myObject.check();
+        // System.out.println(">4 "+value);
+        // myObject.setTarget("321".getBytes());
+        // value = myObject.check();
+        // System.out.println(">321 "+value);
+        // myObject.setTarget("3210".getBytes());
+        // value = myObject.check();
+        // System.out.println(">3210 "+value);
+        // myObject.setTarget("32121".getBytes());
+        // value = myObject.check();
+        // System.out.println(">32121 "+value);
+        // myObject.setTarget("31313131".getBytes());
+        // value = myObject.check();
+        // System.out.println(">31313131 "+value);
 
 
         // byte[] space = new byte[100];
@@ -168,10 +169,11 @@ public class InformationEstimator implements InformationEstimatorInterface{
         // System.out.println(frequencer.calculate2());
         /* */
         byte[] space = new byte[1000000];
-        byte[] target = new byte[100000];
+        byte[] target = new byte[10000];
 
-        Random rnd = new Random();
-        long seed = 201957750703708L; //System.nanoTime();
+        SecureRandom rnd = new SecureRandom();
+        // Random rnd = new Random();
+        long seed = System.nanoTime();
         Frequencer.print("seed:", seed);
         rnd.setSeed(seed);
         rnd.nextBytes(target);
@@ -198,6 +200,8 @@ public class InformationEstimator implements InformationEstimatorInterface{
         System.out.println(">old calculate "+ value2 +" in " + (t1 - t0) + " ms");
 
         if (value != value2) System.out.println("WRONG");
+        if (t4 - t3 - t1 + t0 >= 0) System.out.println("SLOW");
+
         // myObject = new InformationEstimator();
         // myObject.setSpace(space);
         // myObject.setTarget(target);
