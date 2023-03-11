@@ -168,16 +168,16 @@ public class InformationEstimator implements InformationEstimatorInterface{
         // frequencer.setTarget(target);
         // System.out.println(frequencer.calculate2());
         /* */
-        byte[] space = new byte[1000000];
+        byte[] space = new byte[100000];
         byte[] target = new byte[10000];
 
-        SecureRandom rnd = new SecureRandom();
-        // Random rnd = new Random();
-        long seed = System.nanoTime();
-        Frequencer.print("seed:", seed);
-        rnd.setSeed(seed);
-        rnd.nextBytes(target);
-        rnd.nextBytes(space);
+        // SecureRandom rnd = new SecureRandom();
+        // // Random rnd = new Random();
+        // long seed = System.nanoTime();
+        // Frequencer.print("seed:", seed);
+        // rnd.setSeed(seed);
+        // rnd.nextBytes(target);
+        // rnd.nextBytes(space);
         
         long t0 = System.currentTimeMillis();
         myObject = new InformationEstimator();
