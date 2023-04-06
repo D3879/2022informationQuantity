@@ -1,4 +1,4 @@
-package s4.B223323; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
+package s4.B223323;
 
 import java.util.Arrays;
 import java.util.stream.IntStream;
@@ -38,6 +38,10 @@ public class Frequencer implements FrequencerInterface{
 
     private static final double C0 = 1/Math.log10(2d);
 
+    private static final int MAX_WORD_LENGTH = -1;
+
+
+
     // The variable, "suffixArray" is the sorted array of all suffixes of mySpace.                                    
     // Each suffix is expressed by a integer, which is the starting position in mySpace. 
                             
@@ -69,11 +73,7 @@ public class Frequencer implements FrequencerInterface{
         if (!spaceReady) return;
         mySpace = space;
 
-        suffixArray = IntStream.range(0, slen).parallel().toArray();
-        int[] tmp1 = new int[slen];
-        int[] tmp2 = new int[slen];
-        int[] str = IntStream.range(0, slen).parallel().map(i->space[i]).toArray();
-        sa.createSuffixArray(suffixArray, str, tmp1, tmp2, slen);
+        suffixArray = SuffixArray.createSuffixArray(space);
         suffix0 = suffixArray[0];
         suffixl = suffixArray[slen - 1];
     }
@@ -185,9 +185,16 @@ public class Frequencer implements FrequencerInterface{
     public class Tree {
         final double C1;
         final Node root;
+        // int lastFreq;
+        // Double lastIq = 0d;
+
+        // int hit;
+        // int n;
+
         public Tree(double c1, byte target) {
             C1 = c1;
-            root = new Node(target, 0, slen, 0);
+            // lastFreq = slen;
+            root = create(target, 0, slen, 0);
         }
 
         public class Node {
@@ -196,44 +203,28 @@ public class Frequencer implements FrequencerInterface{
             private final int start, end; //itemの範囲 freq=0でもしっかり設定する必要がある。　←　次のノード作成の参考にしているため
             private final int istart, iend; //初期範囲
             private final int offset;
-            private double iq;
+            private final boolean max;
+            private final double iq;
 
-            public Node(final byte target, int start, int end, final int offset) {
-                item = target;
-                istart = start;
-                iend = end;
-                this.offset = offset;
-                if (start == end) { this.start = this.end = start; return; }
-                final int spointer = suffixArray[start] + offset, epointer = suffixArray[end-1] + offset;
-                
-                //2 targetのfreqを計算(start,endを求める)
-                if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
-                    int tmp = end;
-                    /* StartIndex */
-                    for (;;) {
-                        int q = (start + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
-                        if (start == q) { if (suffixp >= slen || mySpace[suffixp] < target) start++; break; }
-                        if (suffixp >= slen || mySpace[suffixp] < target) start = q;
-                        else tmp = q;
-                    }
-                    if (start == end) { this.start = this.end = start; return; }
-                }
-                if (epointer >= slen || mySpace[epointer] != target) {
-                    int tmp = start;
-                    /* EndIndex */
-                    for(;;) {
-                        int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
-                        int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
-                        if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
-                        if (suffixp >= slen || mySpace[suffixp] > target) end = q;
-                        else tmp = q;
-                    }
-                    if (start == end) { this.start = this.end = start; return; }
-                }
-                iq = C1 - Math.log10(end - start);
+            public Node(byte item, int start, int end, int istart, int iend, int offset, double iq) {
+                this.item = item;
                 this.start = start;
                 this.end = end;
+                this.istart = istart;
+                this.iend = iend;
+                this.offset = offset;
+                this.max = start == end;
+                this.iq = iq;
+            }
+            public Node(byte item, int start, int istart, int iend, int offset) {
+                this.item = item;
+                this.start = start;
+                this.end = start;
+                this.istart = istart;
+                this.iend = iend;
+                this.offset = offset;
+                this.max = true;
+                this.iq = 0;
             }
 
             //同一offset内でtargetを探索し、一致するノードを返却
@@ -243,13 +234,13 @@ public class Frequencer implements FrequencerInterface{
                 while (target != p.item) {
                     if (target < p.item) {
                         if (p.left == null) { //左に追加
-                            p.left = new Node(target, p.istart, p.start, offset);
+                            p.left = create(target, p.istart, p.start, offset);
                             return p.left;
                         }
                         p = p.left;
                     } else {
                         if (p.right == null) { //右に追加
-                            p.right = new Node(target, p.end, p.iend, offset);
+                            p.right = create(target, p.end, p.iend, offset);
                             return p.right;
                         }
                         p = p.right;
@@ -261,7 +252,7 @@ public class Frequencer implements FrequencerInterface{
             //offsetを+1したNodeを探索
             public final Node getNext(byte target) {
                 if (next == null) {
-                    next = new Node(target, start, end, offset + 1);
+                    next = create(target, start, end, offset + 1);
                     return next;
                 } else {
                     return next.get(target);
@@ -270,13 +261,56 @@ public class Frequencer implements FrequencerInterface{
 
             //return iq == Double.MAX_VALUE
             public final boolean max() {
-                return start == end;
+                return max;
             }
 
             //maxがfalseの時のみ有効
             public final double iq() {
                 return iq;
             }
+        }
+
+        public final Node create(final byte target, int start, int end, final int offset) {
+            if (start == end || offset == MAX_WORD_LENGTH) { return new Node(target, start, start, end, offset); }
+            final int spointer = suffixArray[start] + offset, epointer = suffixArray[end-1] + offset;
+            
+            int istart = start;
+            int iend = end;
+            //2 targetのfreqを計算(start,endを求める)
+            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
+                int tmp = end;
+                /* StartIndex */
+                for (;;) {
+                    int q = (start + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (start == q) { if (suffixp >= slen || mySpace[suffixp] < target) start++; break; }
+                    if (suffixp >= slen || mySpace[suffixp] < target) start = q;
+                    else tmp = q;
+                }
+                if (start == end) { return new Node(target, start, istart, iend, offset); }
+            }
+            if (epointer >= slen || mySpace[epointer] != target) {
+                int tmp = start;
+                /* EndIndex */
+                for(;;) {
+                    int q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    int suffixp = suffixArray[q] + offset; //suffixp >= slen then space < target
+                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
+                    else tmp = q;
+                }
+                if (start == end) { return new Node(target, start, istart, iend, offset); }
+            }
+
+            // n++;
+
+            // int freq = end - start;
+            // if (freq != lastFreq) { lastFreq = freq; lastIq = C1 - Math.log10(freq); }
+
+            // else hit++;
+
+
+            return new Node(target, start, end, istart, iend, offset, C1 - Math.log10(end - start));
         }
     }
 
@@ -320,8 +354,9 @@ public class Frequencer implements FrequencerInterface{
             // if (targetstart < tlen - END + 2) {
             //     print(s, node.item, node.start, node.end);
             // }
-            if (node.max()) {
+            if (node.max) {
                 if (targetstart == 0) {
+                    // System.out.println((double)tree.hit / (double)tree.n);
                     return min == Double.MAX_VALUE ? Double.MAX_VALUE : min * C0;
                 }
 
@@ -329,10 +364,11 @@ public class Frequencer implements FrequencerInterface{
                 s = targetstart; min = Double.MAX_VALUE;
                 node = tree.root.get(myTarget[s]);
             } else {
-                double iq = memo[s] + node.iq();
+                double iq = memo[s] + node.iq;
                 if (iq < min) min = iq;
                 if (++s == tlen) {
                     if (targetstart == 0) {
+                        // System.out.println((double)tree.hit / (double)tree.n);
                         return min * C0;
                     }
                     memo[--targetstart] = min;
@@ -736,10 +772,9 @@ public class Frequencer implements FrequencerInterface{
     public final double calculate2() {
         if (tlen > 65535) return calculate(); //必要なメモリサイズがInteger.MAX_VALUEを超える
         final double memo[] = new double[((tlen + 1) >> 1) * (tlen + ((tlen & 1) ^ 1))], C1 = Math.log10((double) slen), C0 = 1 / Math.log10(2d);
-        int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray(), tmparr = new int[tlen], tmparr2 = new int[tlen];
-        int[] targetStr = IntStream.range(0, tlen).parallel().map(i -> myTarget[i] & 0xFF).toArray();
+        int[] targetSuffix = IntStream.range(0, tlen).parallel().toArray();
 
-        sa.createSuffixArray(targetSuffix, targetStr, tmparr, tmparr2, tlen);
+        targetSuffix = SuffixArray.createSuffixArray(myTarget);
         // printSuffixArray(targetSuffix, myTarget, tlen);
 
         Arrays.fill(memo, Double.MAX_VALUE);
