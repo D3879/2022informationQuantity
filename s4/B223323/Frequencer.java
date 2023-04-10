@@ -182,6 +182,7 @@ public class Frequencer implements FrequencerInterface{
         return mySpace[i] > myTarget[j] ? 1 : -1; //比較
     }
 
+
     public class Tree {
         final double C1;
         final Node root;
@@ -347,13 +348,6 @@ public class Frequencer implements FrequencerInterface{
         Node node = tree.root;
         double min = Double.MAX_VALUE;
         for (;;) {
-            // if (targetstart == tlen - END) {
-            //     return memo[tlen - END];
-            // }
-
-            // if (targetstart < tlen - END + 2) {
-            //     print(s, node.item, node.start, node.end);
-            // }
             if (node.max) {
                 if (targetstart == 0) {
                     // System.out.println((double)tree.hit / (double)tree.n);
@@ -381,7 +375,11 @@ public class Frequencer implements FrequencerInterface{
         }
     }
 
-    // int END = 36678;
+    /**
+     * start/endが変化したときにLCPにRMQを行う→RMQresult O(1)
+     * offset < RMQresultの時はoffsetをRMQresultまでジャンプ
+     * 
+     */
     
     /* estimationの関数呼び出しを展開 */
     public final double calculate() { //result.length = target.length
@@ -827,5 +825,128 @@ public class Frequencer implements FrequencerInterface{
         // System.out.println(sb.toString());
         
         return memo[0] >= Double.MAX_VALUE ? Double.MAX_VALUE : memo[0] * C0;
+    }
+
+    int sall, eall, sn, en, sen, h;
+
+    public final double count() {
+        double res = _count();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("check     (start, end):");
+        sb.append(sall);
+        sb.append(", ");
+        sb.append(eall);
+        sb.append("\nnot match (start, end):");
+        sb.append(sn);
+        sb.append(", ");
+        sb.append(en);
+        sb.append("\nfrec change           :");
+        sb.append(sen);
+        sb.append("\ncompare               :");
+        sb.append(h);
+        System.out.println(sb.toString());
+        return res;
+    }
+    
+    private final double _count() { //result.length = target.length
+        final int suffix0 = this.suffix0, suffixl = this.suffixl, tlen = this.tlen, slen = this.slen;
+        final double memo[] = new double[tlen];
+        final double DOUBLE_MAX = Double.MAX_VALUE, C1 = Math.log10((double) slen);
+
+        int start, p = start = 0, end = slen, targetstart, s = targetstart = tlen - 1, tmp, q, suffixp, freq, freqc = slen;
+        int spointer = suffix0; //suffixArray[start] + p
+        int epointer = suffixl; //suffixArray[end] + p
+        double min = DOUBLE_MAX, cache = 0d, iq;
+
+        sall = 0;
+        eall = 0; //それぞれの検査数
+        sn = 0; //start 不一致数
+        en = 0; //end 不一致数
+        sen = 0; //start|end 不一致数
+        h = 0; //比較回数
+        boolean flag;
+
+        for (;;) {
+            sall++;
+            flag = true;
+            byte target = myTarget[s];
+            h++;
+            if (spointer >= slen || mySpace[spointer] != target) { //startの位置が正しくない場合
+                tmp = end;
+                sn++;
+                sen++;
+                flag = false;
+                /* StartIndex */
+                for (;;) {
+                    q = (start + tmp) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    suffixp = suffixArray[q] + p; //suffixp >= slen then space < target
+                    h++;
+                    if (start == q) { if (suffixp >= slen || mySpace[suffixp] < target) start++; break; }
+                    if (suffixp >= slen || mySpace[suffixp] < target) start = q;
+                    else tmp = q;
+                }
+
+                if (start == end) {
+                    if (targetstart == 0) {
+                        return min == DOUBLE_MAX ? DOUBLE_MAX : min * C0;
+                    }
+                    memo[--targetstart] = min;
+                    s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                    continue;
+                }
+                spointer = suffixArray[start] + p;
+            }
+            eall++;
+            h++;
+            if (epointer >= slen || mySpace[epointer] != target) {
+                tmp = start;
+                en++;
+                if (flag) sen++;
+
+                /* EndIndex */
+                for(;;) {
+                    q = (tmp + end) >> 1; //(s+e)/2 -> qの定義域[s,e-1]
+                    suffixp = suffixArray[q] + p; //suffixp >= slen then space < target
+                    h++;
+                    if (tmp == q) { if (suffixp < slen && mySpace[suffixp] > target) end--; break;}
+                    if (suffixp >= slen || mySpace[suffixp] > target) end = q;
+                    else tmp = q;
+                }
+
+                if (start == end) { 
+                    if (targetstart == 0) {
+                        return min == DOUBLE_MAX ? DOUBLE_MAX : min * C0;
+                    }
+                    memo[--targetstart] = min;
+                    s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                    continue;
+                }
+                epointer = suffixArray[end - 1] + p;
+            }
+
+            // if (targetstart < tlen - END + 2) {
+            //     print(s, target, start, end);
+            // }
+            
+            freq = end - start;
+            if (freqc != freq) {
+                freqc = freq;
+                cache = C1 - Math.log10((double) freq);
+            }
+            iq = cache + memo[s];
+            if (iq < min) min = iq;
+            if (++s == tlen) {
+                if (targetstart == 0) {
+                    return min * C0;
+                }
+                memo[--targetstart] = min;
+                s = targetstart; start = p = 0; end = slen; spointer = suffix0; epointer = suffixl; min = DOUBLE_MAX; //frequencerを初期化
+                continue;
+            }
+            p++;
+            spointer++;
+            epointer++;
+        }
     }
 }

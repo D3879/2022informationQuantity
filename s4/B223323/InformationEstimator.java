@@ -193,8 +193,11 @@ public class InformationEstimator implements InformationEstimatorInterface{
         // frequencer.setTarget(target);
         // System.out.println(frequencer.calculate2());
         /* */
-        byte[] space = new byte[10000000];
-        byte[] target = new byte[10000000];
+        byte[] space = new byte[100000];
+        byte[] target = new byte[10000];
+
+
+        System.out.println("length (space, target):" + space.length + "," + target.length);
 
         // SecureRandom rnd = new SecureRandom();
         // // Random rnd = new Random();
@@ -204,37 +207,37 @@ public class InformationEstimator implements InformationEstimatorInterface{
         // rnd.nextBytes(target);
         // rnd.nextBytes(space);
         
-        long t0 = System.currentTimeMillis();
+        // long t0 = System.currentTimeMillis();
         myObject = new InformationEstimator();
-        long t1 = System.currentTimeMillis();
+        // long t1 = System.currentTimeMillis();
         myObject.setSpace(space);
-        long t2 = System.currentTimeMillis();
+        // long t2 = System.currentTimeMillis();
         myObject.setTarget(target);
-        long t3 = System.currentTimeMillis();
-        System.out.println(getMemoryInfo());
-        System.out.println("gc");
-        System.gc();
-        System.out.println(getMemoryInfo());
+        // long t3 = System.currentTimeMillis();
+        // System.out.println(getMemoryInfo());
+        // System.out.println("gc");
+        // System.gc();
+        // System.out.println(getMemoryInfo());
         
-        long t4 = System.currentTimeMillis();
-        value = myObject.estimation();
-        long t5 = System.currentTimeMillis();
-        System.out.println(">set space in " + (t2 - t1) + " ms");
-        System.out.println(">set target in " + (t3 - t2) + " ms");
-        System.out.println(">calculate in " + (t5 - t4) + " ms");
-        System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t3 - t1 + t5 - t4) + " ms");
-        System.out.println(getMemoryInfo());
-        System.gc();
+        // long t4 = System.currentTimeMillis();
+        // value = myObject.estimation();
+        // long t5 = System.currentTimeMillis();
+        // System.out.println(">set space in " + (t2 - t1) + " ms");
+        // System.out.println(">set target in " + (t3 - t2) + " ms");
+        // System.out.println(">calculate in " + (t5 - t4) + " ms");
+        // System.out.println(">space(" + (space.length >> 10) + "k), target(" + (target.length >> 10) + "k) "  + value + " in " + (t3 - t1 + t5 - t4) + " ms");
+        // System.out.println(getMemoryInfo());
+        // System.gc();
         
-        t0 = System.currentTimeMillis();
-        double value2 = myObject.myFrequencer.calculate();
-        t1 = System.currentTimeMillis();
+        // t0 = System.currentTimeMillis();
+        double value2 = myObject.myFrequencer.count();
+        // t1 = System.currentTimeMillis();
         
-        System.out.println(">old calculate "+ value2 +" in " + (t1 - t0) + " ms");
-        System.out.println(getMemoryInfo());
+        System.out.println("result                :"+ value2);
+        // System.out.println(getMemoryInfo());
 
-        if (value != value2) System.out.println("WRONG");
-        if (t5 - t4 - t1 + t0 >= 0) System.out.println("SLOW");
+        // if (value != value2) System.out.println("WRONG");
+        // if (t5 - t4 - t1 + t0 >= 0) System.out.println("SLOW");
 
         // myObject = new InformationEstimator();
         // myObject.setSpace(space);
